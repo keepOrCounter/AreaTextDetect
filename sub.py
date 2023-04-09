@@ -53,10 +53,29 @@ class eventMouse():
         self.DetectedMouseXPos=-1
         self.DetectedMouseYPos=-1
         
+        self.timeIntervalStartMotion=0
+        self.timeIntervalEndMotion=0
+        self.MotionMouseXPos=-1
+        self.MotionMouseYPos=-1
+        
         # keyPressed.stop()
         self.mouseClicked=pynput.mouse.Listener(on_click=self.clicked)
+        self.mouseMove=pynput.mouse.Listener(on_move=self.moving)
         
         # mouseClicked.join()
+
+    def moving(self, x,y):
+        self.MotionMouseXPos=x
+        self.MotionMouseYPos=y
+        
+        self.timeIntervalEndMotion=time.time()
+        if self.timeIntervalEndMotion-self.timeIntervalStartMotion>10.0:
+            print("Times Up")
+            if self.activeFlag==-1:
+                print("exit")
+                return False
+            self.timeIntervalStartMotion=time.time()
+            self.activeFlag=-1
 
         
     def clicked(self, x, y, button, pressed):
@@ -68,7 +87,7 @@ class eventMouse():
             
             
         self.timeIntervalEnd=time.time()
-        print(self.timeIntervalEnd-self.timeIntervalStart)
+        # print(self.timeIntervalEnd-self.timeIntervalStart)
         if self.timeIntervalEnd-self.timeIntervalStart>10.0:
             print("Times Up")
             if self.activeFlag==-1:
@@ -88,20 +107,29 @@ class eventMouse():
         self.timeIntervalStart=time.time()
         self.mouseClicked.start()
         
+        self.timeIntervalStartMotion=time.time()
+        self.mouseMove.start()
+        
     def terminate(self) -> None:
         self.mouseClicked.stop()
+        self.mouseMove.stop()
         
     def mouseGet(self) -> int:
         return self.DetectedMouseXPos,self.DetectedMouseYPos
+    
+    def motionGet(self) -> int:
+        return self.MotionMouseXPos,self.MotionMouseYPos
     
     def activeFlagSet(self,newFlag) -> None:
         self.activeFlag=newFlag
         
 class windowsUI():
-    def __init__(self,override=False,alpha=0.1,bgColor="black",\
-        width=-1,height=-1,positionX=0,positionY=0,screenShot=True) -> None:
-        self.__timeList=[time.time(),0]
+    def __init__(self,override=False,alpha=0.1,bgColor="black",screenShot=-1,\
+        width=-1,height=-1,positionX=0,positionY=0,listener=None) -> None:
+        # self.__timeList=[time.time(),0]
         self.__counter=0
+        if screenShot==0:
+            self.__num=6
         
         self.__root = tkinter.Tk()
         self.__root.overrideredirect(override)
@@ -114,19 +142,40 @@ class windowsUI():
         self.__root.geometry("{0}x{1}+{2}+{3}"\
             .format(width, height,positionX,positionY))
         self.__root.configure(bg=bgColor)
-        self.keeper()
+        
+        self.keeper(listener,screenShot)
         self.__root.mainloop()
         
-    def keeper(self) -> None:
-        self.__counter+=1
-        self.__timeList[self.__counter%2]=time.time()
-        print(self.__timeList[self.__counter%2]-self.__timeList[(self.__counter-1)%2])
+    def keeper(self,listener,screenShot) -> None:
+        # self.__counter+=1
+        # self.__timeList[self.__counter%2]=time.time()
+        # print(self.__timeList[self.__counter%2]-self.__timeList[(self.__counter-1)%2])
         
-        print("101010")
-        if self.__counter>10:
-            self.closeWindow()
-        else:
-            self.__root.after(1000, self.keeper)
+        # print("101010")
+        # if self.__counter>10:
+        #     self.closeWindow()
+        # else:
+        if listener!=None:
+            temx,temy=listener.mouseGet()
+            if (self.x==-1 and self.y==-1) or (temx!=self.x or temy!=self.y):
+                self.x,self.y=temx,temy
+                self.__counter+=1
+
+        self.__root.after(1000, self.keeper)
+        
+    def canvasPlace(self,width=-1,height=-1,positionX=0,positionY=0) -> None:
+        if width==-1:
+            width=self.__root.winfo_screenwidth()
+        if height==-1:
+            height=self.__root.winfo_screenheight()
+        self.__canvas=tkinter.Canvas(self.__root,highlightthickness=0,width=width, height=height)
+        self.__canvas.place(positionX,positionY)
+        
+    def rectangleCreation(self,positionX=0,positionY=0,rightX=0,rightY=0,outline="red",\
+        width=0) ->None:
+        self.__rec=[]
+        self.__rec.append(self.__canvas.create_rectangle(positionX,positionY,rightX,rightY,\
+            outline='red',width=width))
         
     def closeWindow(self) -> None:
         self.__root.destroy()
