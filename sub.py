@@ -180,7 +180,7 @@ class windowsUI():
         # else:
         # print(self.__root.attributes("-alpha"))
         if self.listener!=None:
-            if self.__loopTime>=9:
+            if self.__loopTime>=90:
                 self.listener.activeFlagSet(1)
                 self.__loopTime=0
             self.__loopTime+=1
