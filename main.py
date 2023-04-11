@@ -1,5 +1,5 @@
 import sub
 
-startEvent=sub.eventLis()
 
-startEvent.clickListener()
+mouseL=sub.eventMouse()
+wind=sub.windowsUI(True,0.5,"black",listener=mouseL,screenShot=1)
