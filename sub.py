@@ -3,35 +3,68 @@ import pynput,time,tkinter,screeninfo
 
 
 class eventKeyboard():
+    """
+    pressed(key) is a internal function for key board listener, please do not
+        invoke!
+    NOTICE!!!  pressed(key) would check whether main program is down every 10 sec,
+        to make it continous working, call activeFlagSet(newFlag=1) to reactive the working status.
+        
+    StartListener(): start the listener, also safe for any unterminate listener.
+    terminate(): end the listener
+    
+    statusGet(): return listener status, 0 for initiated, 1 for started, 2 for specific keys were pressed,
+        -1 for terminated.
+    """
     def __init__(self) -> None:
         self.keyValue=-1
         self.timeIntervalStart=0
         self.timeIntervalEnd=0
+        
+        self.keysIntervalStart=0
+        self.keysIntervalEnd=0
+        
         self.activeFlag=-1
         self.keyPressed=pynput.keyboard.Listener(on_press=self.pressed)
+        self.counter=0
+        
+        self.__status=0
         
     def pressed(self,key):
         # print("b")
+        self.keysOkay=self.keysIntervalEnd-self.keysIntervalStart
+        self.keysIntervalEnd=time.time()
         
         if str(type(key))=="<enum 'Key'>":
             if key.name=="alt_l":
-                self.keyValue=key.name
-                print(key.name)
+                self.counter=1
+                self.keysIntervalStart=time.time()
+            else:
+                self.counter=0
         else:
             self.keyValue=key.char
-            print(key.char=="z")
+            if key.char=="z" and self.counter==1 and (0.0<=self.keysOkay<=1.0):
+                self.__status=2
+                return False
+            else:
+                self.counter=0
+            # print(key.char=="z")
         
         self.timeIntervalEnd=time.time()
         
         if self.timeIntervalEnd-self.timeIntervalStart>10.0:
-            print("Times Up")
+            # print("Times Up")
             if self.activeFlag==-1:
-                print("Exit")
+                self.__status=-1
                 return False
             self.timeIntervalStart=time.time()
             self.activeFlag=-1
         
     def StartListener(self) -> None:
+        if self.__status==-1:
+            self.terminate()
+            self.keyPressed=pynput.keyboard.Listener(on_press=self.pressed)
+            
+        self.__status=1
         self.keyPressed.start()
         self.timeIntervalStart=time.time()
             
@@ -43,9 +76,24 @@ class eventKeyboard():
     
     def activeFlagSet(self,newFlag) -> None:
         self.activeFlag=newFlag
+        
+    def statusGet(self) -> str:
+        return self.__status
 
 
 class eventMouse():
+    """
+    clicked(x,y) and moving(x,y) are internal functions for key board listener, please do not
+        invoke!
+    NOTICE!!!  clicked(x,y) and moving(x,y) would check whether main program is down every 10 sec,
+        to make it continous working, call activeFlagSet(newFlag=1) to reactive the working status.
+        
+    StartListener(): start the listeners.
+    terminate(): end the listeners.
+    
+    mouseGet(): return the x,y coordinate for last time mouse clicked
+    mouseGet(): return the x,y coordinate for last time mouse moved
+    """
     def __init__(self) -> None:
         self.timeIntervalStart=0
         self.timeIntervalEnd=0
@@ -128,10 +176,21 @@ class eventMouse():
         self.activeFlag2=newFlag
         
 class windowsUI():
+    """
+    class parameters: 
+        override: self defined tk windows, only set true when using screenShot mode or message box mode
+        alpha: visibility of root window
+        bgColor: background color, only root windows
+        screenShot: mode flag, 1 for screenShot mode, 2 for main window mode, 3...
+        width,height: size of root window
+        positionX,positionY: x,y for top left of window
+        listener: mouse listener
+    """
     def __init__(self,override=False,alpha=0.5,bgColor="black",screenShot=-1,\
         width=-1,height=-1,positionX=0,positionY=0,listener=None) -> None:
         # self.__timeList=[time.time(),0]
         self.listener=listener
+        self.keyBoardInterrupt=eventKeyboard()
         self.screenShot=screenShot
         self.screen = screeninfo.get_monitors()[0]
 
@@ -145,10 +204,12 @@ class windowsUI():
         
         self.__loopTime=0
         self.__counter=0
+        self.__status=-1
         
         self.__root = tkinter.Tk()
-        self.__root.overrideredirect(override)
-        self.__root.attributes("-alpha", alpha)
+        
+        self.width=width
+        self.height=height
         if width==-1:
             self.width=self.__root.winfo_screenwidth()
         if height==-1:
@@ -158,27 +219,53 @@ class windowsUI():
             self.__num=6
             self.canvasPlace()
             
+            self.__root.overrideredirect(override)
+            self.__root.attributes("-alpha", alpha)
+        elif self.screenShot==2:
+            temx=200*(1280/self.screen.width)
+            temy=70*(720/self.screen.height)
+            print(temx,temy)
+            self.but=tkinter.Button(self.__root,text="Record!")
+
+            print((self.width-temx)/2,(self.height-temy)/2)
+            self.but.place(x=(self.width-temx)/2,y=(self.height-temy)/2)
+            
         self.__root.geometry("{0}x{1}+{2}+{3}"\
             .format(self.width, self.height,positionX,positionY))
         self.__root.configure(bg=bgColor)
         
         if self.listener!=None:
             self.listener.StartListener()
+        self.keyBoardInterrupt.StartListener()
         self.keeper()
         
 
         self.__root.mainloop()
         
-    def keeper(self) -> None:
-        # self.__counter+=1
-        # self.__timeList[self.__counter%2]=time.time()
-        # print(self.__timeList[self.__counter%2]-self.__timeList[(self.__counter-1)%2])
+    def Start(self,status):
+        if status==10 and self.__status==-1:
+            mouseL=eventMouse()
+            wind=windowsUI(True,0.5,"black",listener=mouseL,screenShot=1)
+            self.__status=10
+            return wind
         
-        # print("101010")
-        # if self.__counter>10:
-        #     self.closeWindow()
-        # else:
-        # print(self.__root.attributes("-alpha"))
+    def keeper(self) -> None:
+
+        if self.screenShot==1:
+            if self.drawer()==1:
+                self.__root.after(100, self.keeper)
+                
+        if self.__status==10:
+            self.__root.attributes("-alpha", 0)
+            self.__status=11
+            
+        if self.keyBoardInterrupt.statusGet==2:
+            if self.__status==11:
+                self.__root.attributes("-alpha", 1)
+                self.__status=-1
+                self.keyBoardInterrupt.StartListener()
+        
+    def drawer(self)->int:
         if self.listener!=None:
             if self.__loopTime>=90:
                 self.listener.activeFlagSet(1)
@@ -217,7 +304,9 @@ class windowsUI():
         if self.x==0 or self.y==0:
             self.listener.terminate()
             self.closeWindow()
-        self.__root.after(100, self.keeper)
+            return -1
+        
+        return 1
         
     def canvasPlace(self,positionX=0,positionY=0,highlightthickness=0,bgColor="black") -> None:
 
