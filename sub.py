@@ -248,13 +248,7 @@ class windowsUI():
             wind=windowsUI(True,0.5,"black",listener=mouseL,screenShot=1)
             self.__status=10
             return wind
-        
-    def Start(self,status):
-        if status==10 and self.__status==-1:
-            mouseL=eventMouse()
-            wind=windowsUI(True,0.5,"black",listener=mouseL,screenShot=1)
-            self.__status=10
-            return wind
+
         
     def keeper(self) -> None:
 
