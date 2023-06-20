@@ -243,7 +243,7 @@ class windowsUI():
         self.__root.mainloop()
         
     def Start(self,status):
-        if status==10 and self.__status==-1:
+        if status==10 and self.__status==-1:# Issue 1
             mouseL=eventMouse()
             wind=windowsUI(True,0.5,"black",listener=mouseL,screenShot=1)
             self.__status=10
@@ -259,7 +259,7 @@ class windowsUI():
             self.__root.attributes("-alpha", 0)
             self.__status=11
             
-        if self.keyBoardInterrupt.statusGet==2:
+        if self.keyBoardInterrupt.statusGet()==2:
             if self.__status==11:
                 self.__root.attributes("-alpha", 1)
                 self.__status=-1
