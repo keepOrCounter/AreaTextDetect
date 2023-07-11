@@ -92,7 +92,7 @@ class eventMouse():
     terminate(): end the listeners.
     
     mouseGet(): return the x,y coordinate for last time mouse clicked
-    mouseGet(): return the x,y coordinate for last time mouse moved
+    motionGet(): return the x,y coordinate for last time mouse moved
     """
     def __init__(self) -> None:
         self.timeIntervalStart=0
@@ -334,6 +334,10 @@ class windowsUI():
         
     def closeWindow(self) -> None:
         self.__root.destroy()
+        
+    def getPositions(self)->list:
+        
+        return
 
 
 if __name__=="__main__":
