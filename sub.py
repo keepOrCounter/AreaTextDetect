@@ -28,7 +28,9 @@ class eventKeyboard():
         self.counter=0
         
         self.__status=0
-        
+
+        self.begin = 0
+
     def pressed(self,key):
         # print("b")
         self.keysOkay=self.keysIntervalEnd-self.keysIntervalStart
@@ -67,15 +69,20 @@ class eventKeyboard():
         self.__status=1
         self.keyPressed.start()
         self.timeIntervalStart=time.time()
-            
+
+
     def terminate(self) -> None:
         self.keyPressed.stop()
         
     def keyGet(self) -> str:
         return self.keyValue
     
-    def activeFlagSet(self,newFlag) -> None:
-        self.activeFlag=newFlag
+    def activeFlagSet(self,flag) -> None:
+        end = time.time()
+        dif = end - self.begin
+        if dif >= 90:
+            self.activeFlag = flag
+            self.begin = time.time()
         
     def statusGet(self) -> str:
         return self.__status
@@ -172,8 +179,8 @@ class eventMouse():
         return self.MotionMouseXPos,self.MotionMouseYPos
     
     def activeFlagSet(self,newFlag) -> None:
-        self.activeFlag1=newFlag
-        self.activeFlag2=newFlag
+        self.activeFlag1=newFlag # 检测点击的flag
+        self.activeFlag2=newFlag # 检测移动的flag
         
 class windowsUI():
     """
@@ -264,15 +271,13 @@ class windowsUI():
             if self.__status==11:
                 self.__root.attributes("-alpha", 1)
                 self.__status=-1
-                self.keyBoardInterrupt.StartListener()
+                self.keyBoardInterrupt.StartListener()  # 键盘
         
     def drawer(self)->int:
         if self.listener!=None:
-            if self.__loopTime>=90:
-                self.listener.activeFlagSet(1)
-                self.__loopTime=0
-            self.__loopTime+=1
-            
+
+            self.listener.activeFlagSet(1)
+
             if self.screenShot==1 and self.__num>0:
                 temx,temy=self.listener.mouseGet()
                 
