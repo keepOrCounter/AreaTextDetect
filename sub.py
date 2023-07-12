@@ -92,7 +92,7 @@ class eventMouse():
     terminate(): end the listeners.
     
     mouseGet(): return the x,y coordinate for last time mouse clicked
-    mouseGet(): return the x,y coordinate for last time mouse moved
+    motionGet(): return the x,y coordinate for last time mouse moved
     """
     def __init__(self) -> None:
         self.timeIntervalStart=0
@@ -103,6 +103,9 @@ class eventMouse():
         
         self.DetectedMouseXPos=-1
         self.DetectedMouseYPos=-1
+
+        self.DetectedRightMouseXPos=-1
+        self.DetectedRightMouseYPos=-1
         
         self.timeIntervalStartMotion=0
         self.timeIntervalEndMotion=0
@@ -135,6 +138,11 @@ class eventMouse():
             self.DetectedMouseXPos=x
             self.DetectedMouseYPos=y
             # print(self.DetectedMouseXPos,self.DetectedMouseYPos)
+
+        if pressed and button.name=="right":
+            self.DetectedRightMouseXPos=x
+            self.DetectedRightMouseYPos=y
+            # print(self.DetectedRightMouseXPos,self.DetectedRightMouseYPos)
             
             
         self.timeIntervalEnd=time.time()
