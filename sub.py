@@ -122,6 +122,7 @@ class eventMouse():
         
         # mouseClicked.join()
 
+        self.begin = 0
     def moving(self, x,y):
         self.MotionMouseXPos=x
         self.MotionMouseYPos=y
@@ -179,8 +180,14 @@ class eventMouse():
         return self.MotionMouseXPos,self.MotionMouseYPos
     
     def activeFlagSet(self,newFlag) -> None:
-        self.activeFlag1=newFlag # 检测点击的flag
-        self.activeFlag2=newFlag # 检测移动的flag
+        end = time.time()
+        dif = end - self.begin
+        if dif >= 90:
+            self.activeFlag1 = newFlag  # 检测点击的flag
+            self.activeFlag2 = newFlag  # 检测移动的flag
+            self.begin = time.time()
+
+
         
 class windowsUI():
     """
