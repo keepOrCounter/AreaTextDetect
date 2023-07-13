@@ -58,18 +58,7 @@ class eventKeyboard():
                 return False
             self.timeIntervalStart=time.time()
             self.activeFlag=-1
-
-    def addShortcut(self):
-        print("set shortcut of print 'WTF new function?': ")
-
-        with pynput.keyboard.Listener(on_press=self.getShortcut) as listener:
-            listener.join()
-
-
-    def getShortcut(self,key):
-        print("You pressed: ")
-        print(key)
-        
+            
     def StartListener(self) -> None:
         if self.__status==-1:
             self.terminate()
