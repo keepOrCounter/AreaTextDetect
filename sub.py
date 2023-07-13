@@ -58,7 +58,7 @@ class eventKeyboard():
                 return False
             self.timeIntervalStart=time.time()
             self.activeFlag=-1
-        
+            
     def StartListener(self) -> None:
         if self.__status==-1:
             self.terminate()
@@ -91,7 +91,7 @@ class eventMouse():
     StartListener(): start the listeners.
     terminate(): end the listeners.
     
-    mouseGet(): return the x,y coordinate for last time mouse clicked
+    mouseGet(side): if side can be "left" or "right",return the x,y coordinate for last time mouse clicked
     motionGet(): return the x,y coordinate for last time mouse moved
     """
     def __init__(self) -> None:
@@ -173,8 +173,11 @@ class eventMouse():
         self.mouseClicked.stop()
         self.mouseMove.stop()
         
-    def mouseGet(self) -> int:
-        return self.DetectedMouseXPos,self.DetectedMouseYPos
+    def mouseGet(self, side) -> int:
+        if side == "left":
+            return self.DetectedMouseXPos,self.DetectedMouseYPos
+        elif side == "right":
+            return self.DetectedRightMouseXPos,self.DetectedRightMouseYPos
     
     def motionGet(self) -> int:
         return self.MotionMouseXPos,self.MotionMouseYPos
@@ -282,7 +285,7 @@ class windowsUI():
             self.__loopTime+=1
             
             if self.screenShot==1 and self.__num>0:
-                temx,temy=self.listener.mouseGet()
+                temx,temy=self.listener.mouseGet("left")
                 
                 temx=(temx*self.width)/self.screen.width
                 temy=(temy*self.height)/self.screen.height
