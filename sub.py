@@ -59,8 +59,9 @@ class eventKeyboard():
             if self.activeFlag == -1:
                 self.__status = -1
                 return False
-            self.timeIntervalStart = time.time()
-            self.activeFlag = -1
+
+            self.timeIntervalStart=time.time()
+            self.activeFlag=-1
 
     def StartListener(self) -> None:
         if self.__status == -1:
@@ -94,24 +95,29 @@ class eventMouse():
     StartListener(): start the listeners.
     terminate(): end the listeners.
     
-    mouseGet(): return the x,y coordinate for last time mouse clicked
-    mouseGet(): return the x,y coordinate for last time mouse moved
+    mouseGet(side): if side can be "left" or "right",return the x,y coordinate for last time mouse clicked
+    motionGet(): return the x,y coordinate for last time mouse moved
     """
 
     def __init__(self) -> None:
-        self.timeIntervalStart = 0
-        self.timeIntervalEnd = 0
 
-        self.activeFlag1 = -1
-        self.activeFlag2 = -1
+        self.timeIntervalStart=0
+        self.timeIntervalEnd=0
+        
+        self.activeFlag1=-1
+        self.activeFlag2=-1
+        
+        self.DetectedMouseXPos=-1
+        self.DetectedMouseYPos=-1
 
-        self.DetectedMouseXPos = -1
-        self.DetectedMouseYPos = -1
-
-        self.timeIntervalStartMotion = 0
-        self.timeIntervalEndMotion = 0
-        self.MotionMouseXPos = -1
-        self.MotionMouseYPos = -1
+        self.DetectedRightMouseXPos=-1
+        self.DetectedRightMouseYPos=-1
+        
+        self.timeIntervalStartMotion=0
+        self.timeIntervalEndMotion=0
+        self.MotionMouseXPos=-1
+        self.MotionMouseYPos=-1
+        
 
         # keyPressed.stop()
         self.mouseClicked = pynput.mouse.Listener(on_click=self.clicked)
@@ -139,7 +145,14 @@ class eventMouse():
             self.DetectedMouseYPos = y
             # print(self.DetectedMouseXPos,self.DetectedMouseYPos)
 
-        self.timeIntervalEnd = time.time()
+        if pressed and button.name=="right":
+            self.DetectedRightMouseXPos=x
+            self.DetectedRightMouseYPos=y
+            # print(self.DetectedRightMouseXPos,self.DetectedRightMouseYPos)
+            
+            
+        self.timeIntervalEnd=time.time()
+
         # print(self.timeIntervalEnd-self.timeIntervalStart)
         if self.timeIntervalEnd - self.timeIntervalStart > 10.0:
             print("Times Up")
@@ -166,8 +179,13 @@ class eventMouse():
         self.mouseClicked.stop()
         self.mouseMove.stop()
 
-    def mouseGet(self) -> int:
-        return self.DetectedMouseXPos, self.DetectedMouseYPos
+        
+    def mouseGet(self, side) -> int:
+        if side == "left":
+            return self.DetectedMouseXPos,self.DetectedMouseYPos
+        elif side == "right":
+            return self.DetectedRightMouseXPos,self.DetectedRightMouseYPos
+    
 
     def motionGet(self) -> int:
         return self.MotionMouseXPos, self.MotionMouseYPos
@@ -270,11 +288,12 @@ class windowsUI():
         if self.listener != None:  # 判断监听器是否在线
             if self.__loopTime >= 90:  # 未来会删
                 self.listener.activeFlagSet(1)
+
                 self.__loopTime = 0
             self.__loopTime += 1
 
             if self.screenShot == 1 and self.__num > 0:  # 1是截图功能的id，number是多少个画了多少个矩形。
-                temx, temy = self.listener.mouseGet()  # 鼠标的绝对坐标。
+                temx, temy = self.listener.mouseGet("left")  # 鼠标的绝对坐标。
 
                 temx = (temx * self.width) / self.screen.width  # 转换相对坐标。
                 temy = (temy * self.height) / self.screen.height
