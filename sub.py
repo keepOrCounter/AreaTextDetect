@@ -69,7 +69,8 @@ class eventKeyboard():
         self.__status=1
         self.keyPressed.start()
         self.timeIntervalStart=time.time()
-        self.begin = time.time()
+
+        self.begin = time.time() - 5
 
     def terminate(self) -> None:
         self.keyPressed.stop()
@@ -168,7 +169,8 @@ class eventMouse():
         
         self.timeIntervalStartMotion=time.time()
         self.mouseMove.start()
-        self.begin = time.time()
+
+        self.begin = time.time() - 5
     def terminate(self) -> None:
         self.mouseClicked.stop()
         self.mouseMove.stop()
