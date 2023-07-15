@@ -2,6 +2,7 @@ import pynput,time,tkinter,screeninfo
 # import threading
 
 
+
 class eventKeyboard():
     """
     pressed(key) is a internal function for key board listener, please do not
@@ -60,7 +61,7 @@ class eventKeyboard():
             self.activeFlag=-1
         
     def StartListener(self) -> None:
-        if self.__status==-1:
+        if self.__status==-1 or self.__status==2:
             self.terminate()
             self.keyPressed=pynput.keyboard.Listener(on_press=self.pressed)
             
@@ -140,9 +141,9 @@ class eventMouse():
         self.timeIntervalEnd=time.time()
         # print(self.timeIntervalEnd-self.timeIntervalStart)
         if self.timeIntervalEnd-self.timeIntervalStart>10.0:
-            print("Times Up")
+            # print("Times Up")
             if self.activeFlag1==-1:
-                print("exit")
+                # print("exit")
                 return False
             self.timeIntervalStart=time.time()
             self.activeFlag1=-1
@@ -181,34 +182,37 @@ class windowsUI():
         override: self defined tk windows, only set true when using screenShot mode or message box mode
         alpha: visibility of root window
         bgColor: background color, only root windows
-        screenShot: mode flag, 1 for screenShot mode, 2 for main window mode, 3...
+        screenShot: mode flag, 1 for screenShot mode, 2 for main window mode, 3 for child windows on screenShot mode
         width,height: size of root window
         positionX,positionY: x,y for top left of window
         listener: mouse listener
     """
     def __init__(self,override=False,alpha=0.5,bgColor="black",screenShot=-1,\
-        width=-1,height=-1,positionX=0,positionY=0,listener=None) -> None:
+        width=-1,height=-1,positionX=0,positionY=0,listener:eventMouse=None) -> None:
         # self.__timeList=[time.time(),0]
         self.listener=listener
         self.keyBoardInterrupt=eventKeyboard()
         self.screenShot=screenShot
         self.screen = screeninfo.get_monitors()[0]
-
+        print("22222222222222222222222333333333333333333333")
         
-        self.__rec=[]
-        self.x=-1
-        self.y=-1
+        self.statusID=-1# globel status flag
+        self.__subWindows=None# store windows created by event function Start()
         
-        self.xRight=-1
+        self.__rec=[]# store rectangle in canvas
+        self.x=-10# store mouse click coordinations
+        self.y=-10
+        
+        self.xRight=-1# store mouse move coordinations
         self.yRight=-1
         
-        self.__loopTime=0
-        self.__counter=0
-        self.__status=-1
+        self.__loopTime=0# use to count the time, 0.1s every loop
+        self.__counter=0# status id for drawer function
         
         self.__root = tkinter.Tk()
+        self.windowSize={"root":[width,height],"screenShoter":[0,0]}# all type of window size
         
-        self.width=width
+        self.width=width# current use width and height
         self.height=height
         if width==-1:
             self.width=self.__root.winfo_screenwidth()
@@ -219,16 +223,19 @@ class windowsUI():
             self.__num=6
             self.canvasPlace()
             
-            self.__root.overrideredirect(override)
-            self.__root.attributes("-alpha", alpha)
+            # self.__root.overrideredirect(override)
+            # self.__root.attributes("-alpha", alpha)
         elif self.screenShot==2:
             temx=200*(1280/self.screen.width)
             temy=70*(720/self.screen.height)
             print(temx,temy)
-            self.but=tkinter.Button(self.__root,text="Record!")
+            self.but=tkinter.Button(self.__root,text="Record!",command=lambda:self.Start(10))
 
             print((self.width-temx)/2,(self.height-temy)/2)
             self.but.place(x=(self.width-temx)/2,y=(self.height-temy)/2)
+            
+        self.__root.overrideredirect(override)
+        self.__root.attributes("-alpha", alpha)
             
         self.__root.geometry("{0}x{1}+{2}+{3}"\
             .format(self.width, self.height,positionX,positionY))
@@ -236,37 +243,84 @@ class windowsUI():
         
         if self.listener!=None:
             self.listener.StartListener()
-        self.keyBoardInterrupt.StartListener()
+        if self.screenShot!=1:
+            self.keyBoardInterrupt.StartListener()# listener to detect keyboard shortcut
         self.keeper()
         
-
         self.__root.mainloop()
         
+    def screenShotCreation(self,alphaValue=0.5,bgColor="black")->None:
+        """_summary_
+
+        Args:
+            alphaValue (int): the visibility of the screen shot window
+            bgColor (str): allow for user to custom the back ground color
+        """
+        
+        print(type(self.listener))
+        self.__subWindows = tkinter.Toplevel()# set up sub window
+        self.windowSize["root"]=[self.width,self.height]# back up the size of root window
+        self.width = self.__subWindows.winfo_screenwidth()# make it large as the screen
+        self.height = self.__subWindows.winfo_screenheight()
+        
+        self.__subWindows.overrideredirect(True)# remove tk default component(e.g. window close button)
+        self.__subWindows.attributes("-alpha", alphaValue)
+            
+        self.__subWindows.geometry("{0}x{1}+{2}+{3}"\
+            .format(self.width, self.height,0,0))
+        self.__subWindows.configure(bg = bgColor)
+        self.__num=6
+        self.canvasPlace(target="sub")
+        
+        self.screenShot=1
+        print("Screenshoter setted up")
+        if self.listener==None:
+            self.listener=eventMouse()
+            self.listener.StartListener()
+        
     def Start(self,status):
-        if status==10 and self.__status==-1:# Issue 1
-            mouseL=eventMouse()
-            wind=windowsUI(True,0.5,"black",listener=mouseL,screenShot=1)
-            self.__status=10
-            return wind
+        # print(status==10)
+        # print("Start:",self.statusID)
+        if status==10:# 
+            self.screenShotCreation()
+            # self.subWindows.append(windowsUI(True,0.5,"black",listener=mouseL,screenShot=3))
+            self.statusID=10
+            # print("Start:",self.statusID)
 
         
     def keeper(self) -> None:
-
+        # print("ID:",self.screenShot)
+        print("Status:",self.statusID)
+        # print(self.__subWindows)
         if self.screenShot==1:
             if self.drawer()==1:
                 self.__root.after(100, self.keeper)
-                
-        if self.__status==10:
+
+        elif self.screenShot==2:# mian panel mode
+            self.__root.after(100, self.keeper)
+
+        # print(self.statusID==11)
+        if self.statusID==10:
+            # print("!!!!!!!!!!!!!!!!!!")
             self.__root.attributes("-alpha", 0)
-            self.__status=11
-            
+            self.statusID=11
+        
+        # print(self.keyBoardInterrupt.statusGet())
         if self.keyBoardInterrupt.statusGet()==2:
-            if self.__status==11:
+            # print("ssssssssssssssss",self.statusID)
+            if self.statusID==11:
+                self.screenShot=2
                 self.__root.attributes("-alpha", 1)
-                self.__status=-1
+                self.__subWindows.destroy()
+                self.listener.terminate()
+                self.listener=None
+                self.statusID=-1
                 self.keyBoardInterrupt.StartListener()
+
+
         
     def drawer(self)->int:
+        print(self.__num)
         if self.listener!=None:
             if self.__loopTime>=90:
                 self.listener.activeFlagSet(1)
@@ -280,7 +334,10 @@ class windowsUI():
                 temy=(temy*self.height)/self.screen.height
                 
                 # print("call:",temx,temy)
-                if temx!=self.x or temy!=self.y:
+                if self.x==-10 or self.y==-10:# prevent detect first click
+                    self.x=-1
+                    self.y=-1
+                elif temx!=self.x or temy!=self.y:
                     print("click:",temx,temy)
                     self.x,self.y=temx,temy
                     self.__counter+=1
@@ -304,16 +361,19 @@ class windowsUI():
         
         if self.x==0 or self.y==0:
             self.listener.terminate()
-            self.closeWindow()
+            self.__root.destroy()
             return -1
         
         return 1
         
-    def canvasPlace(self,positionX=0,positionY=0,highlightthickness=0,bgColor="black") -> None:
+    def canvasPlace(self,positionX=0,positionY=0,highlightthickness=0,bgColor="black",target="root") -> None:
 
-
-        self.__canvas=tkinter.Canvas(self.__root,highlightthickness=\
-            highlightthickness,width=self.width, height=self.height,bg=bgColor)
+        if target=="sub":
+            self.__canvas=tkinter.Canvas(self.__subWindows,highlightthickness=\
+                highlightthickness,width=self.width, height=self.height,bg=bgColor)
+        else:
+            self.__canvas=tkinter.Canvas(self.__root,highlightthickness=\
+                highlightthickness,width=self.width, height=self.height,bg=bgColor)
         self.__canvas.place(x=positionX,y=positionY)
         
     def rectangleCreation(self,positionX=0,positionY=0,rightX=0,rightY=0,outline="crimson",\
@@ -332,8 +392,8 @@ class windowsUI():
         self.__canvas.coords(self.__rec[index],positionX,positionY,rightX,rightY)
         print("coorMoving:",self.__canvas.coords(self.__rec[-1]))
         
-    def closeWindow(self) -> None:
-        self.__root.destroy()
+    # def closeWindow(self) -> None:
+    #     self.__root.destroy()
         
     def getPositions(self)->list:
         
