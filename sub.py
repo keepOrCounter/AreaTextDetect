@@ -29,7 +29,7 @@ class eventKeyboard():
         
         self.__status=0
 
-        self.begin = 0
+
 
     def pressed(self,key):
         # print("b")
@@ -69,7 +69,7 @@ class eventKeyboard():
         self.__status=1
         self.keyPressed.start()
         self.timeIntervalStart=time.time()
-
+        self.begin = time.time()
 
     def terminate(self) -> None:
         self.keyPressed.stop()
@@ -80,7 +80,7 @@ class eventKeyboard():
     def activeFlagSet(self,flag) -> None:
         end = time.time()
         dif = end - self.begin
-        if dif >= 90:
+        if dif >= 10:
             self.activeFlag = flag
             self.begin = time.time()
         
@@ -122,7 +122,7 @@ class eventMouse():
         
         # mouseClicked.join()
 
-        self.begin = 0
+
     def moving(self, x,y):
         self.MotionMouseXPos=x
         self.MotionMouseYPos=y
@@ -168,7 +168,7 @@ class eventMouse():
         
         self.timeIntervalStartMotion=time.time()
         self.mouseMove.start()
-        
+        self.begin = time.time()
     def terminate(self) -> None:
         self.mouseClicked.stop()
         self.mouseMove.stop()
@@ -182,7 +182,7 @@ class eventMouse():
     def activeFlagSet(self,newFlag) -> None:
         end = time.time()
         dif = end - self.begin
-        if dif >= 90:
+        if dif >= 10:
             self.activeFlag1 = newFlag  # 检测点击的flag
             self.activeFlag2 = newFlag  # 检测移动的flag
             self.begin = time.time()
