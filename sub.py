@@ -186,6 +186,25 @@ class windowsUI():
         width,height: size of root window
         positionX,positionY: x,y for top left of window
         listener: mouse listener
+        
+        !!! Flag summary:
+        self.statusID: 
+            singel digit: the function ID for current view windows/panels
+            ten digit: the view ID for current window/panel
+            hundred digit: special digit repersent the main program status
+            thousand digit: the ID of window/panel
+            Example:
+                1100:Start up screen shot
+                    first "1" means root window
+                    second "1" means the button has pressed and wait for event function to handle
+                    first "0" means first view of root window
+                    second "0" means the the button to Start up screen shot is on first view of root window
+            
+            detials:
+            -1: initial flag
+            "1100":Start up screen shot
+            "2000":Screen shot mode
+            
     """
     def __init__(self,override=False,alpha=0.5,bgColor="black",screenShot=-1,\
         width=-1,height=-1,positionX=0,positionY=0,listener:eventMouse=None) -> None:
@@ -284,7 +303,9 @@ class windowsUI():
         if status==10:# 
             self.screenShotCreation()
             # self.subWindows.append(windowsUI(True,0.5,"black",listener=mouseL,screenShot=3))
-            self.statusID=10
+            # print("!!!!!!!!!!!!!!!!!!")
+            self.__root.attributes("-alpha", 0)
+            self.statusID=2000
             # print("Start:",self.statusID)
 
         
@@ -300,22 +321,20 @@ class windowsUI():
             self.__root.after(100, self.keeper)
 
         # print(self.statusID==11)
-        if self.statusID==10:
-            # print("!!!!!!!!!!!!!!!!!!")
-            self.__root.attributes("-alpha", 0)
-            self.statusID=11
         
         # print(self.keyBoardInterrupt.statusGet())
         if self.keyBoardInterrupt.statusGet()==2:
             # print("ssssssssssssssss",self.statusID)
-            if self.statusID==11:
+            if self.statusID==2000:
+                self.x=-10
+                self.y=-10
                 self.screenShot=2
                 self.__root.attributes("-alpha", 1)
                 self.__subWindows.destroy()
                 self.listener.terminate()
                 self.listener=None
-                self.statusID=-1
                 self.keyBoardInterrupt.StartListener()
+                self.statusID=1000
 
 
         
