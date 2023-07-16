@@ -414,7 +414,10 @@ class windowsUI():
                 temy = (temy * self.height) / self.screen.height
 
                 # print("call:",temx,temy)
-                if temx != self.x or temy != self.y:  # 防止长度和宽度为0的矩形。
+                if self.x == -10 or self.y == -10:  # prevent first click detection
+                    self.x = -1
+                    self.y = -1
+                elif temx != self.x or temy != self.y:  # 防止长度和宽度为0的矩形。
                     print("click:", temx, temy)
                     self.x, self.y = temx, temy
                     self.__counter += 1  # 初始是0，每点击一次加1。
