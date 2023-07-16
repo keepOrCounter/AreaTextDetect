@@ -1,4 +1,5 @@
 import pynput,time,tkinter,screeninfo
+from tkinter.font import Font
 # import threading
 
 
@@ -201,7 +202,7 @@ class windowsUI():
                     second "0" means the the button to Start up screen shot is on first view of root window
             
             detials:
-            -1: initial flag
+            -1: standby flag
             "1100":Start up screen shot
             "2000":Screen shot mode
             
@@ -213,9 +214,14 @@ class windowsUI():
         self.keyBoardInterrupt=eventKeyboard()
         self.screenShot=screenShot
         self.screen = screeninfo.get_monitors()[0]
-        print("22222222222222222222222333333333333333333333")
+        # print("22222222222222222222222333333333333333333333")
+        self.mainPanelButtons=({"Recognition Area Record":[1100],"Setting":[1101],"next page":[1102]},)
+        #Store the buttons on main Panel and their status ID
+        self.currentButton:list[tkinter.Button]=[]
+        self.currentLabel=[]
+        self.currentOtherComponents=[]
         
-        self.statusID=-1# globel status flag
+        self.statusID=1000# globel status flag
         self.__subWindows=None# store windows created by event function Start()
         
         self.__rec=[]# store rectangle in canvas
@@ -233,25 +239,29 @@ class windowsUI():
         
         self.width=width# current use width and height
         self.height=height
-        if width==-1:
-            self.width=self.__root.winfo_screenwidth()
-        if height==-1:
-            self.height=self.__root.winfo_screenheight()
+        self.bgColor=bgColor
+        self.alpha=alpha
 
         if self.screenShot==1:
             self.__num=6
             self.canvasPlace()
+            if width==-1:
+                self.width=self.__root.winfo_screenwidth()
+            if height==-1:
+                self.height=self.__root.winfo_screenheight()
             
             # self.__root.overrideredirect(override)
             # self.__root.attributes("-alpha", alpha)
         elif self.screenShot==2:
-            temx=200*(1280/self.screen.width)
-            temy=70*(720/self.screen.height)
-            print(temx,temy)
-            self.but=tkinter.Button(self.__root,text="Record!",command=lambda:self.Start(10))
-
-            print((self.width-temx)/2,(self.height-temy)/2)
-            self.but.place(x=(self.width-temx)/2,y=(self.height-temy)/2)
+            # temx=200*(1280/self.screen.width)
+            # temy=70*(720/self.screen.height)
+            # print(temx,temy)
+            if width==-1:
+                self.width=int(self.__root.winfo_screenwidth()/5)
+            if height==-1:
+                self.height=int(self.width*16/10)
+            # print(self.width,self.height)
+            self.layOutController()
             
         self.__root.overrideredirect(override)
         self.__root.attributes("-alpha", alpha)
@@ -259,6 +269,7 @@ class windowsUI():
         self.__root.geometry("{0}x{1}+{2}+{3}"\
             .format(self.width, self.height,positionX,positionY))
         self.__root.configure(bg=bgColor)
+        self.__root.resizable(0,0)
         
         if self.listener!=None:
             self.listener.StartListener()
@@ -268,6 +279,28 @@ class windowsUI():
         
         self.__root.mainloop()
         
+    def layOutController(self,mode="root",view=0)->None:
+        if mode=="root":
+            buttonNum=len(self.mainPanelButtons[view].keys())
+            counter=0
+            for x in self.mainPanelButtons[view].keys():
+                counter+=1
+                tem=self.__lambdaCreater(self.mainPanelButtons[view][x][0])
+                print(self.mainPanelButtons[view][x][0])
+                self.currentButton.append(tkinter.Button(self.__root,text=x,command=tem))
+                font=Font(font=self.currentButton[-1]["font"])# get font information
+                lineHeight=font.metrics("linespace")# calculate hieght and weidth by font information
+                lineWidth=font.measure(x)
+                # print(lineHeight,lineWidth)
+                # print()
+
+                self.currentButton[-1].place(x=(self.width-lineWidth)/2,y=counter*self.height/(buttonNum+1)-lineHeight/2)
+        else:
+            pass
+    
+    def __lambdaCreater(self,x):# create lambda function for button, prevent shollow copy
+        return lambda:self.Start(x)
+    
     def screenShotCreation(self,alphaValue=0.5,bgColor="black")->None:
         """_summary_
 
@@ -298,9 +331,10 @@ class windowsUI():
             self.listener.StartListener()
         
     def Start(self,status):
-        # print(status==10)
+        print("111111111111111111111111")
+        print(status)
         # print("Start:",self.statusID)
-        if status==10:# 
+        if status==1100:# 
             self.screenShotCreation()
             # self.subWindows.append(windowsUI(True,0.5,"black",listener=mouseL,screenShot=3))
             # print("!!!!!!!!!!!!!!!!!!")
@@ -329,7 +363,7 @@ class windowsUI():
                 self.x=-10
                 self.y=-10
                 self.screenShot=2
-                self.__root.attributes("-alpha", 1)
+                self.__root.attributes("-alpha", self.alpha)
                 self.__subWindows.destroy()
                 self.listener.terminate()
                 self.listener=None
@@ -353,7 +387,7 @@ class windowsUI():
                 temy=(temy*self.height)/self.screen.height
                 
                 # print("call:",temx,temy)
-                if self.x==-10 or self.y==-10:# prevent detect first click
+                if self.x==-10 or self.y==-10:# prevent first click detection
                     self.x=-1
                     self.y=-1
                 elif temx!=self.x or temy!=self.y:
