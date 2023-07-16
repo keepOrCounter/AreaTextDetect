@@ -1,4 +1,7 @@
-import pynput, time, tkinter, screeninfo
+import pynput
+import screeninfo
+import time
+import tkinter
 
 
 # import threading
@@ -19,22 +22,20 @@ class eventKeyboard():
     """
 
     def __init__(self) -> None:
-        self.keyValue=-1
-        self.timeIntervalStart=0
-        self.timeIntervalEnd=0
-        
-        self.keysIntervalStart=0
-        self.keysIntervalEnd=0
-        
-        self.activeFlag=-1
-        self.keyPressed=pynput.keyboard.Listener(on_press=self.pressed)
-        self.counter=0
-        
-        self.__status=0
+        self.keyValue = -1
+        self.timeIntervalStart = 0
+        self.timeIntervalEnd = 0
 
+        self.keysIntervalStart = 0
+        self.keysIntervalEnd = 0
 
+        self.activeFlag = -1
+        self.keyPressed = pynput.keyboard.Listener(on_press=self.pressed)
+        self.counter = 0
 
-    def pressed(self,key):
+        self.__status = 0
+
+    def pressed(self, key):
 
         # print("b")
         self.keysOkay = self.keysIntervalEnd - self.keysIntervalStart
@@ -63,8 +64,8 @@ class eventKeyboard():
                 self.__status = -1
                 return False
 
-            self.timeIntervalStart=time.time()
-            self.activeFlag=-1
+            self.timeIntervalStart = time.time()
+            self.activeFlag = -1
 
     def StartListener(self) -> None:
         if self.__status == -1:
@@ -73,24 +74,22 @@ class eventKeyboard():
 
         self.__status = 1
         self.keyPressed.start()
-        self.timeIntervalStart=time.time()
+        self.timeIntervalStart = time.time()
 
         self.begin = time.time() - 5
-
 
     def terminate(self) -> None:
         self.keyPressed.stop()
 
     def keyGet(self) -> str:
         return self.keyValue
-    
-    def activeFlagSet(self,flag) -> None:
+
+    def activeFlagSet(self, flag) -> None:
         end = time.time()
         dif = end - self.begin
         if dif >= 10:
             self.activeFlag = flag
             self.begin = time.time()
-        
 
     def statusGet(self) -> str:
         return self.__status
@@ -112,23 +111,22 @@ class eventMouse():
 
     def __init__(self) -> None:
 
-        self.timeIntervalStart=0
-        self.timeIntervalEnd=0
-        
-        self.activeFlag1=-1
-        self.activeFlag2=-1
-        
-        self.DetectedMouseXPos=-1
-        self.DetectedMouseYPos=-1
+        self.timeIntervalStart = 0
+        self.timeIntervalEnd = 0
 
-        self.DetectedRightMouseXPos=-1
-        self.DetectedRightMouseYPos=-1
-        
-        self.timeIntervalStartMotion=0
-        self.timeIntervalEndMotion=0
-        self.MotionMouseXPos=-1
-        self.MotionMouseYPos=-1
-        
+        self.activeFlag1 = -1
+        self.activeFlag2 = -1
+
+        self.DetectedMouseXPos = -1
+        self.DetectedMouseYPos = -1
+
+        self.DetectedRightMouseXPos = -1
+        self.DetectedRightMouseYPos = -1
+
+        self.timeIntervalStartMotion = 0
+        self.timeIntervalEndMotion = 0
+        self.MotionMouseXPos = -1
+        self.MotionMouseYPos = -1
 
         # keyPressed.stop()
         self.mouseClicked = pynput.mouse.Listener(on_click=self.clicked)
@@ -136,13 +134,12 @@ class eventMouse():
 
         # mouseClicked.join()
 
+    def moving(self, x, y):
+        self.MotionMouseXPos = x
+        self.MotionMouseYPos = y
 
-    def moving(self, x,y):
-        self.MotionMouseXPos=x
-        self.MotionMouseYPos=y
-        
-        self.timeIntervalEndMotion=time.time()
-        if self.timeIntervalEndMotion-self.timeIntervalStartMotion>10.0:
+        self.timeIntervalEndMotion = time.time()
+        if self.timeIntervalEndMotion - self.timeIntervalStartMotion > 10.0:
 
             print("Times Up")
             if self.activeFlag2 == -1:
@@ -158,13 +155,12 @@ class eventMouse():
             self.DetectedMouseYPos = y
             # print(self.DetectedMouseXPos,self.DetectedMouseYPos)
 
-        if pressed and button.name=="right":
-            self.DetectedRightMouseXPos=x
-            self.DetectedRightMouseYPos=y
+        if pressed and button.name == "right":
+            self.DetectedRightMouseXPos = x
+            self.DetectedRightMouseYPos = y
             # print(self.DetectedRightMouseXPos,self.DetectedRightMouseYPos)
-            
-            
-        self.timeIntervalEnd=time.time()
+
+        self.timeIntervalEnd = time.time()
 
         # print(self.timeIntervalEnd-self.timeIntervalStart)
         if self.timeIntervalEnd - self.timeIntervalStart > 10.0:
@@ -194,18 +190,16 @@ class eventMouse():
         self.mouseClicked.stop()
         self.mouseMove.stop()
 
-        
     def mouseGet(self, side) -> int:
         if side == "left":
-            return self.DetectedMouseXPos,self.DetectedMouseYPos
+            return self.DetectedMouseXPos, self.DetectedMouseYPos
         elif side == "right":
-            return self.DetectedRightMouseXPos,self.DetectedRightMouseYPos
-    
+            return self.DetectedRightMouseXPos, self.DetectedRightMouseYPos
 
     def motionGet(self) -> int:
-        return self.MotionMouseXPos,self.MotionMouseYPos
-    
-    def activeFlagSet(self,newFlag) -> None:
+        return self.MotionMouseXPos, self.MotionMouseYPos
+
+    def activeFlagSet(self, newFlag) -> None:
         end = time.time()
         dif = end - self.begin
         if dif >= 10:
@@ -214,7 +208,6 @@ class eventMouse():
             self.begin = time.time()
 
 
-        
 class windowsUI():
     """
     class parameters: 
@@ -301,20 +294,19 @@ class windowsUI():
         if self.keyBoardInterrupt.statusGet() == 2:  # 检测键盘的上的快捷键。退出截图状态（未完成）
             if self.__status == 11:
                 self.__root.attributes("-alpha", 1)
-                self.__status=-1
+                self.__status = -1
                 self.keyBoardInterrupt.StartListener()  # 键盘
-        
-    def drawer(self)->int:
-        if self.listener!=None:
+
+    def drawer(self) -> int:
+        if self.listener != None:
 
             self.listener.activeFlagSet(1)
 
-            if self.screenShot==1 and self.__num>0: # 1是截图功能的id，number是多少个画了多少个矩形。
-                temx,temy=self.listener.mouseGet("left") # 鼠标的绝对坐标。
-                
-                temx=(temx*self.width)/self.screen.width  # 转换相对坐标。
-                temy=(temy*self.height)/self.screen.height
-                
+            if self.screenShot == 1 and self.__num > 0:  # 1是截图功能的id，number是多少个画了多少个矩形。
+                temx, temy = self.listener.mouseGet("left")  # 鼠标的绝对坐标。
+
+                temx = (temx * self.width) / self.screen.width  # 转换相对坐标。
+                temy = (temy * self.height) / self.screen.height
 
                 # print("call:",temx,temy)
                 if temx != self.x or temy != self.y:  # 防止长度和宽度为0的矩形。
