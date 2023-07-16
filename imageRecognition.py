@@ -198,7 +198,7 @@ if __name__=="__main__":
     print(reshaped_array.shape)
     print(reshaped_array)
     print("-------------------")
-    w=l2ModelTrainer(reshaped_array,label,1)
+    w=l2ModelTrainer(reshaped_array,label)
     print(w.shape)
     print(w)
     np.save("w.npy",w,fix_imports=True)
