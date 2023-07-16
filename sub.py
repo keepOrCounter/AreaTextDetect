@@ -1,6 +1,8 @@
-import pynput,time,tkinter,screeninfo
+import pynput
+import screeninfo
+import time
+import tkinter
 from tkinter.font import Font
-# import threading
 
 
 
@@ -17,68 +19,78 @@ class eventKeyboard():
     statusGet(): return listener status, 0 for initiated, 1 for started, 2 for specific keys were pressed,
         -1 for terminated.
     """
+
     def __init__(self) -> None:
-        self.keyValue=-1
-        self.timeIntervalStart=0
-        self.timeIntervalEnd=0
-        
-        self.keysIntervalStart=0
-        self.keysIntervalEnd=0
-        
-        self.activeFlag=-1
-        self.keyPressed=pynput.keyboard.Listener(on_press=self.pressed)
-        self.counter=0
-        
-        self.__status=0
-        
-    def pressed(self,key):
+        self.keyValue = -1
+        self.timeIntervalStart = 0
+        self.timeIntervalEnd = 0
+
+        self.keysIntervalStart = 0
+        self.keysIntervalEnd = 0
+
+        self.activeFlag = -1
+        self.keyPressed = pynput.keyboard.Listener(on_press=self.pressed)
+        self.counter = 0
+
+        self.__status = 0
+
+    def pressed(self, key):
+
         # print("b")
-        self.keysOkay=self.keysIntervalEnd-self.keysIntervalStart
-        self.keysIntervalEnd=time.time()
-        
-        if str(type(key))=="<enum 'Key'>":
-            if key.name=="alt_l":
-                self.counter=1
-                self.keysIntervalStart=time.time()
+        self.keysOkay = self.keysIntervalEnd - self.keysIntervalStart
+        self.keysIntervalEnd = time.time()
+
+        if str(type(key)) == "<enum 'Key'>":
+            if key.name == "alt_l":
+                self.counter = 1
+                self.keysIntervalStart = time.time()
             else:
-                self.counter=0
+                self.counter = 0
         else:
-            self.keyValue=key.char
-            if key.char=="z" and self.counter==1 and (0.0<=self.keysOkay<=1.0):
-                self.__status=2
+            self.keyValue = key.char
+            if key.char == "z" and self.counter == 1 and (0.0 <= self.keysOkay <= 1.0):
+                self.__status = 2
                 return False
             else:
-                self.counter=0
+                self.counter = 0
             # print(key.char=="z")
-        
-        self.timeIntervalEnd=time.time()
-        
-        if self.timeIntervalEnd-self.timeIntervalStart>10.0:
+
+        self.timeIntervalEnd = time.time()
+
+        if self.timeIntervalEnd - self.timeIntervalStart > 10.0:
             # print("Times Up")
-            if self.activeFlag==-1:
-                self.__status=-1
+            if self.activeFlag == -1:
+                self.__status = -1
                 return False
-            self.timeIntervalStart=time.time()
-            self.activeFlag=-1
-        
+
+            self.timeIntervalStart = time.time()
+            self.activeFlag = -1
+
     def StartListener(self) -> None:
-        if self.__status==-1 or self.__status==2:
+        if self.__status == -1 or self.__status == 2:
+
             self.terminate()
-            self.keyPressed=pynput.keyboard.Listener(on_press=self.pressed)
-            
-        self.__status=1
+            self.keyPressed = pynput.keyboard.Listener(on_press=self.pressed)
+
+        self.__status = 1
         self.keyPressed.start()
-        self.timeIntervalStart=time.time()
-            
+        self.timeIntervalStart = time.time()
+
+        self.begin = time.time() - 5
+
     def terminate(self) -> None:
         self.keyPressed.stop()
-        
+
     def keyGet(self) -> str:
         return self.keyValue
-    
-    def activeFlagSet(self,newFlag) -> None:
-        self.activeFlag=newFlag
-        
+
+    def activeFlagSet(self, flag) -> None:
+        end = time.time()
+        dif = end - self.begin
+        if dif >= 10:
+            self.activeFlag = flag
+            self.begin = time.time()
+
     def statusGet(self) -> str:
         return self.__status
 
@@ -93,90 +105,111 @@ class eventMouse():
     StartListener(): start the listeners.
     terminate(): end the listeners.
     
-    mouseGet(): return the x,y coordinate for last time mouse clicked
+    mouseGet(side): if side can be "left" or "right",return the x,y coordinate for last time mouse clicked
+
     motionGet(): return the x,y coordinate for last time mouse moved
     """
+
     def __init__(self) -> None:
-        self.timeIntervalStart=0
-        self.timeIntervalEnd=0
-        
-        self.activeFlag1=-1
-        self.activeFlag2=-1
-        
-        self.DetectedMouseXPos=-1
-        self.DetectedMouseYPos=-1
-        
-        self.timeIntervalStartMotion=0
-        self.timeIntervalEndMotion=0
-        self.MotionMouseXPos=-1
-        self.MotionMouseYPos=-1
-        
+
+        self.timeIntervalStart = 0
+        self.timeIntervalEnd = 0
+
+        self.activeFlag1 = -1
+        self.activeFlag2 = -1
+
+        self.DetectedMouseXPos = -1
+        self.DetectedMouseYPos = -1
+
+        self.DetectedRightMouseXPos = -1
+        self.DetectedRightMouseYPos = -1
+
+        self.timeIntervalStartMotion = 0
+        self.timeIntervalEndMotion = 0
+        self.MotionMouseXPos = -1
+        self.MotionMouseYPos = -1
+
         # keyPressed.stop()
-        self.mouseClicked=pynput.mouse.Listener(on_click=self.clicked)
-        self.mouseMove=pynput.mouse.Listener(on_move=self.moving)
-        
+        self.mouseClicked = pynput.mouse.Listener(on_click=self.clicked)
+        self.mouseMove = pynput.mouse.Listener(on_move=self.moving)
+
         # mouseClicked.join()
 
-    def moving(self, x,y):
-        self.MotionMouseXPos=x
-        self.MotionMouseYPos=y
-        
-        self.timeIntervalEndMotion=time.time()
-        if self.timeIntervalEndMotion-self.timeIntervalStartMotion>10.0:
+    def moving(self, x, y):
+        self.MotionMouseXPos = x
+        self.MotionMouseYPos = y
+
+        self.timeIntervalEndMotion = time.time()
+        if self.timeIntervalEndMotion - self.timeIntervalStartMotion > 10.0:
+
             print("Times Up")
-            if self.activeFlag2==-1:
+            if self.activeFlag2 == -1:
                 print("exit")
                 return False
-            self.timeIntervalStartMotion=time.time()
-            self.activeFlag2=-1
+            self.timeIntervalStartMotion = time.time()
+            self.activeFlag2 = -1
 
-        
     def clicked(self, x, y, button, pressed):
-        
-        if pressed and button.name=="left":
-            self.DetectedMouseXPos=x
-            self.DetectedMouseYPos=y
+
+        if pressed and button.name == "left":
+            self.DetectedMouseXPos = x
+            self.DetectedMouseYPos = y
             # print(self.DetectedMouseXPos,self.DetectedMouseYPos)
-            
-            
-        self.timeIntervalEnd=time.time()
+
+        if pressed and button.name == "right":
+            self.DetectedRightMouseXPos = x
+            self.DetectedRightMouseYPos = y
+            # print(self.DetectedRightMouseXPos,self.DetectedRightMouseYPos)
+
+        self.timeIntervalEnd = time.time()
+
         # print(self.timeIntervalEnd-self.timeIntervalStart)
-        if self.timeIntervalEnd-self.timeIntervalStart>10.0:
-            # print("Times Up")
-            if self.activeFlag1==-1:
-                # print("exit")
+        if self.timeIntervalEnd - self.timeIntervalStart > 10.0:
+#             print("Times Up")
+            if self.activeFlag1 == -1:
+#                 print("exit")
+
                 return False
-            self.timeIntervalStart=time.time()
-            self.activeFlag1=-1
+            self.timeIntervalStart = time.time()
+            self.activeFlag1 = -1
             # if x==0 or y ==0:
             #     self.detectFlag=False
-                # self.terminate()
+            # self.terminate()
             # return True
-
 
         # return True
 
     def StartListener(self) -> None:
-        self.timeIntervalStart=time.time()
+        self.timeIntervalStart = time.time()
         self.mouseClicked.start()
-        
-        self.timeIntervalStartMotion=time.time()
+
+        self.timeIntervalStartMotion = time.time()
         self.mouseMove.start()
-        
+
+        self.begin = time.time() - 5
+
     def terminate(self) -> None:
         self.mouseClicked.stop()
         self.mouseMove.stop()
-        
-    def mouseGet(self) -> int:
-        return self.DetectedMouseXPos,self.DetectedMouseYPos
-    
+
+    def mouseGet(self, side) -> int:
+        if side == "left":
+            return self.DetectedMouseXPos, self.DetectedMouseYPos
+        elif side == "right":
+            return self.DetectedRightMouseXPos, self.DetectedRightMouseYPos
+
     def motionGet(self) -> int:
-        return self.MotionMouseXPos,self.MotionMouseYPos
-    
-    def activeFlagSet(self,newFlag) -> None:
-        self.activeFlag1=newFlag
-        self.activeFlag2=newFlag
-        
+        return self.MotionMouseXPos, self.MotionMouseYPos
+
+    def activeFlagSet(self, newFlag) -> None:
+        end = time.time()
+        dif = end - self.begin
+        if dif >= 10:
+            self.activeFlag1 = newFlag  # 检测点击的flag
+            self.activeFlag2 = newFlag  # 检测移动的flag
+            self.begin = time.time()
+
+
 class windowsUI():
     """
     class parameters: 
@@ -207,12 +240,13 @@ class windowsUI():
             "2000":Screen shot mode
             
     """
+
     def __init__(self,override=False,alpha=0.5,bgColor="black",screenShot=-1,\
         width=-1,height=-1,positionX=0,positionY=0,listener:eventMouse=None) -> None:
         # self.__timeList=[time.time(),0]
-        self.listener=listener
-        self.keyBoardInterrupt=eventKeyboard()
-        self.screenShot=screenShot
+        self.listener = listener
+        self.keyBoardInterrupt = eventKeyboard()
+        self.screenShot = screenShot
         self.screen = screeninfo.get_monitors()[0]
         # print("22222222222222222222222333333333333333333333")
         self.mainPanelButtons=({"Recognition Area Record":[1100],"Setting":[1101],"next page":[1102]},)
@@ -372,51 +406,45 @@ class windowsUI():
 
 
         
-    def drawer(self)->int:
-        print(self.__num)
-        if self.listener!=None:
-            if self.__loopTime>=90:
-                self.listener.activeFlagSet(1)
-                self.__loopTime=0
-            self.__loopTime+=1
-            
-            if self.screenShot==1 and self.__num>0:
-                temx,temy=self.listener.mouseGet()
-                
-                temx=(temx*self.width)/self.screen.width
-                temy=(temy*self.height)/self.screen.height
-                
-                # print("call:",temx,temy)
-                if self.x==-10 or self.y==-10:# prevent first click detection
-                    self.x=-1
-                    self.y=-1
-                elif temx!=self.x or temy!=self.y:
-                    print("click:",temx,temy)
-                    self.x,self.y=temx,temy
-                    self.__counter+=1
-                    if self.__counter==1:
-                        self.rectangleCreation(self.x,self.y,self.x,self.y,width=3)
-                    else:
-                        self.__counter=0
-                
-                if self.__counter==1:
-                    temx,temy=self.listener.motionGet()
-                    
-                    temx=(temx*self.width)/self.screen.width
-                    temy=(temy*self.height)/self.screen.height
-                    
-                    if (self.xRight==-1 and self.yRight==-1) \
-                        or (temx!=self.xRight or temy!=self.yRight):
+    def drawer(self) -> int:
+        if self.listener != None:
 
-                        print("move:",temx,temy)
-                        self.xRight,self.yRight=temx,temy
-                        self.rectangleConfigure(self.x,self.y,self.xRight,self.yRight,width=3)
-        
-        if self.x==0 or self.y==0:
+            self.listener.activeFlagSet(1)
+
+            if self.screenShot == 1 and self.__num > 0:  # 1是截图功能的id，number是多少个画了多少个矩形。
+                temx, temy = self.listener.mouseGet("left")  # 鼠标的绝对坐标。
+
+                temx = (temx * self.width) / self.screen.width  # 转换相对坐标。
+                temy = (temy * self.height) / self.screen.height
+
+                # print("call:",temx,temy)
+                if temx != self.x or temy != self.y:  # 防止长度和宽度为0的矩形。
+                    print("click:", temx, temy)
+                    self.x, self.y = temx, temy
+                    self.__counter += 1  # 初始是0，每点击一次加1。
+                    if self.__counter == 1:  # 创捷一个新的正方形。
+                        self.rectangleCreation(self.x, self.y, self.x, self.y, width=3)
+                    else:
+                        self.__counter = 0
+
+                if self.__counter == 1:  # 正方形点击第一下该如何反应。
+                    temx, temy = self.listener.motionGet()  # 检测鼠标移动坐标（绝对坐标）
+
+                    temx = (temx * self.width) / self.screen.width  # 转换成相对坐标
+                    temy = (temy * self.height) / self.screen.height
+
+                    if (self.xRight == -1 and self.yRight == -1) \
+                            or (temx != self.xRight or temy != self.yRight):  # xRight和yRight检测前一刻和后一刻一样不一样
+
+                        print("move:", temx, temy)
+                        self.xRight, self.yRight = temx, temy  # 鼠标当前位置
+                        self.rectangleConfigure(self.x, self.y, self.xRight, self.yRight, width=3)  # 更新矩阵
+
+        if self.x == 0 or self.y == 0:  # 退出
             self.listener.terminate()
             self.__root.destroy()
             return -1
-        
+
         return 1
         
     def canvasPlace(self,positionX=0,positionY=0,highlightthickness=0,bgColor="black",target="root") -> None:
@@ -432,12 +460,22 @@ class windowsUI():
     def rectangleCreation(self,positionX=0,positionY=0,rightX=0,rightY=0,outline="crimson",\
         width=0,dash=(1,1)) ->None:
 
-        self.__rec.append(self.__canvas.create_rectangle(positionX,positionY,rightX,rightY,\
-            outline=outline,width=width,dash=dash))
-        print("coor:",self.__canvas.coords(self.__rec[-1]))
-        
-    def rectangleConfigure(self,positionX=0,positionY=0,rightX=0,rightY=0,outline="crimson",\
-        width=0,index=-1,dash=(1,1)) ->None:
+    def rectangleCreation(self, positionX=0, positionY=0, rightX=0, rightY=0, outline="crimson", \
+                          width=0, dash=(1, 1)) -> None:
+
+        self.__rec.append(self.__canvas.create_rectangle(positionX, positionY, rightX, rightY, \
+                                                         outline=outline, width=width, dash=dash))
+        print("coor:", self.__canvas.coords(self.__rec[-1]))
+
+    def rectangleConfigure(self, positionX=0, positionY=0, rightX=0, rightY=0, outline="crimson", \
+                           width=0, index=-1, dash=(1, 1)) -> None:
+
+        self.__canvas.itemconfigure(self.__rec[index], outline=outline, width=width, \
+                                    dash=dash)
+
+        self.__canvas.coords(self.__rec[index], positionX, positionY, rightX, rightY)
+        print("coorMoving:", self.__canvas.coords(self.__rec[-1]))
+
 
         self.__canvas.itemconfigure(self.__rec[index],outline=outline,width=width,\
             dash=dash)
@@ -453,7 +491,29 @@ class windowsUI():
         return
 
 
-if __name__=="__main__":
+    def transform(self, canvas_rectangle):  # 将画布上的相对坐标转换成屏幕的绝对坐标
+        coords = self.__canvas.coords(canvas_rectangle)  # 得到矩阵的坐标
+        tem_left_x = coords[0]
+        tem_left_y = coords[1]
+        tem_right_x = coords[2]
+        tem_right_y = coords[3]
+
+        tem_left_x = tem_left_x * self.screen.width / self.width  # 转换成绝对坐标
+        tem_left_y = tem_left_y * self.screen.width / self.width
+        tem_right_x = tem_right_x * self.screen.width / self.width
+        tem_right_y = tem_right_y * self.screen.width / self.width
+
+        monitor = {
+            "top": tem_left_x,
+            "left": tem_left_y,
+            "width": tem_right_x - tem_left_x,
+            "height": tem_right_y - tem_left_y
+        }
+
+        return monitor
+
+
+if __name__ == "__main__":
     # startEvent=eventKeyboard()
     # startEvent.StartListener()
     # # x,y=startEvent.mouseGet()
@@ -466,7 +526,7 @@ if __name__=="__main__":
     # # startEvent.activeFlagSet(1)
     # # time.sleep(15)
     # startEvent.terminate()
-    wind=windowsUI(True,0.1,"black")
+    wind = windowsUI(True, 0.1, "black")
     # time.sleep(5)
-    
+
     print("a")
