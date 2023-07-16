@@ -5,7 +5,6 @@ import tkinter
 from tkinter.font import Font
 
 
-
 class eventKeyboard():
     """
     pressed(key) is a internal function for key board listener, please do not
@@ -68,7 +67,6 @@ class eventKeyboard():
 
     def StartListener(self) -> None:
         if self.__status == -1 or self.__status == 2:
-
             self.terminate()
             self.keyPressed = pynput.keyboard.Listener(on_press=self.pressed)
 
@@ -165,9 +163,9 @@ class eventMouse():
 
         # print(self.timeIntervalEnd-self.timeIntervalStart)
         if self.timeIntervalEnd - self.timeIntervalStart > 10.0:
-#             print("Times Up")
+            #             print("Times Up")
             if self.activeFlag1 == -1:
-#                 print("exit")
+                #                 print("exit")
 
                 return False
             self.timeIntervalStart = time.time()
@@ -241,171 +239,169 @@ class windowsUI():
             
     """
 
-    def __init__(self,override=False,alpha=0.5,bgColor="black",screenShot=-1,\
-        width=-1,height=-1,positionX=0,positionY=0,listener:eventMouse=None) -> None:
+    def __init__(self, override=False, alpha=0.5, bgColor="black", screenShot=-1, \
+                 width=-1, height=-1, positionX=0, positionY=0, listener: eventMouse = None) -> None:
         # self.__timeList=[time.time(),0]
         self.listener = listener
         self.keyBoardInterrupt = eventKeyboard()
         self.screenShot = screenShot
         self.screen = screeninfo.get_monitors()[0]
         # print("22222222222222222222222333333333333333333333")
-        self.mainPanelButtons=({"Recognition Area Record":[1100],"Setting":[1101],"next page":[1102]},)
-        #Store the buttons on main Panel and their status ID
-        self.currentButton:list[tkinter.Button]=[]
-        self.currentLabel=[]
-        self.currentOtherComponents=[]
-        
-        self.statusID=1000# globel status flag
-        self.__subWindows=None# store windows created by event function Start()
-        
-        self.__rec=[]# store rectangle in canvas
-        self.x=-10# store mouse click coordinations
-        self.y=-10
-        
-        self.xRight=-1# store mouse move coordinations
-        self.yRight=-1
-        
-        self.__loopTime=0# use to count the time, 0.1s every loop
-        self.__counter=0# status id for drawer function
-        
-        self.__root = tkinter.Tk()
-        self.windowSize={"root":[width,height],"screenShoter":[0,0]}# all type of window size
-        
-        self.width=width# current use width and height
-        self.height=height
-        self.bgColor=bgColor
-        self.alpha=alpha
+        self.mainPanelButtons = ({"Recognition Area Record": [1100], "Setting": [1101], "next page": [1102]},)
+        # Store the buttons on main Panel and their status ID
+        self.currentButton: list[tkinter.Button] = []
+        self.currentLabel = []
+        self.currentOtherComponents = []
 
-        if self.screenShot==1:
-            self.__num=6
+        self.statusID = 1000  # globel status flag
+        self.__subWindows = None  # store windows created by event function Start()
+
+        self.__rec = []  # store rectangle in canvas
+        self.x = -10  # store mouse click coordinations
+        self.y = -10
+
+        self.xRight = -1  # store mouse move coordinations
+        self.yRight = -1
+
+        self.__loopTime = 0  # use to count the time, 0.1s every loop
+        self.__counter = 0  # status id for drawer function
+
+        self.__root = tkinter.Tk()
+        self.windowSize = {"root": [width, height], "screenShoter": [0, 0]}  # all type of window size
+
+        self.width = width  # current use width and height
+        self.height = height
+        self.bgColor = bgColor
+        self.alpha = alpha
+
+        if self.screenShot == 1:
+            self.__num = 6
             self.canvasPlace()
-            if width==-1:
-                self.width=self.__root.winfo_screenwidth()
-            if height==-1:
-                self.height=self.__root.winfo_screenheight()
-            
+            if width == -1:
+                self.width = self.__root.winfo_screenwidth()
+            if height == -1:
+                self.height = self.__root.winfo_screenheight()
+
             # self.__root.overrideredirect(override)
             # self.__root.attributes("-alpha", alpha)
-        elif self.screenShot==2:
+        elif self.screenShot == 2:
             # temx=200*(1280/self.screen.width)
             # temy=70*(720/self.screen.height)
             # print(temx,temy)
-            if width==-1:
-                self.width=int(self.__root.winfo_screenwidth()/5)
-            if height==-1:
-                self.height=int(self.width*16/10)
+            if width == -1:
+                self.width = int(self.__root.winfo_screenwidth() / 5)
+            if height == -1:
+                self.height = int(self.width * 16 / 10)
             # print(self.width,self.height)
             self.layOutController()
-            
+
         self.__root.overrideredirect(override)
         self.__root.attributes("-alpha", alpha)
-            
-        self.__root.geometry("{0}x{1}+{2}+{3}"\
-            .format(self.width, self.height,positionX,positionY))
+
+        self.__root.geometry("{0}x{1}+{2}+{3}" \
+                             .format(self.width, self.height, positionX, positionY))
         self.__root.configure(bg=bgColor)
-        self.__root.resizable(0,0)
-        
-        if self.listener!=None:
+        self.__root.resizable(0, 0)
+
+        if self.listener != None:
             self.listener.StartListener()
-        if self.screenShot!=1:
-            self.keyBoardInterrupt.StartListener()# listener to detect keyboard shortcut
+        if self.screenShot != 1:
+            self.keyBoardInterrupt.StartListener()  # listener to detect keyboard shortcut
         self.keeper()
-        
+
         self.__root.mainloop()
-        
-    def layOutController(self,mode="root",view=0)->None:
-        if mode=="root":
-            buttonNum=len(self.mainPanelButtons[view].keys())
-            counter=0
+
+    def layOutController(self, mode="root", view=0) -> None:
+        if mode == "root":
+            buttonNum = len(self.mainPanelButtons[view].keys())
+            counter = 0
             for x in self.mainPanelButtons[view].keys():
-                counter+=1
-                tem=self.__lambdaCreater(self.mainPanelButtons[view][x][0])
+                counter += 1
+                tem = self.__lambdaCreater(self.mainPanelButtons[view][x][0])
                 print(self.mainPanelButtons[view][x][0])
-                self.currentButton.append(tkinter.Button(self.__root,text=x,command=tem))
-                font=Font(font=self.currentButton[-1]["font"])# get font information
-                lineHeight=font.metrics("linespace")# calculate hieght and weidth by font information
-                lineWidth=font.measure(x)
+                self.currentButton.append(tkinter.Button(self.__root, text=x, command=tem))
+                font = Font(font=self.currentButton[-1]["font"])  # get font information
+                lineHeight = font.metrics("linespace")  # calculate hieght and weidth by font information
+                lineWidth = font.measure(x)
                 # print(lineHeight,lineWidth)
                 # print()
 
-                self.currentButton[-1].place(x=(self.width-lineWidth)/2,y=counter*self.height/(buttonNum+1)-lineHeight/2)
+                self.currentButton[-1].place(x=(self.width - lineWidth) / 2,
+                                             y=counter * self.height / (buttonNum + 1) - lineHeight / 2)
         else:
             pass
-    
-    def __lambdaCreater(self,x):# create lambda function for button, prevent shollow copy
-        return lambda:self.Start(x)
-    
-    def screenShotCreation(self,alphaValue=0.5,bgColor="black")->None:
+
+    def __lambdaCreater(self, x):  # create lambda function for button, prevent shollow copy
+        return lambda: self.Start(x)
+
+    def screenShotCreation(self, alphaValue=0.5, bgColor="black") -> None:
         """_summary_
 
         Args:
             alphaValue (int): the visibility of the screen shot window
             bgColor (str): allow for user to custom the back ground color
         """
-        
+
         print(type(self.listener))
-        self.__subWindows = tkinter.Toplevel()# set up sub window
-        self.windowSize["root"]=[self.width,self.height]# back up the size of root window
-        self.width = self.__subWindows.winfo_screenwidth()# make it large as the screen
+        self.__subWindows = tkinter.Toplevel()  # set up sub window
+        self.windowSize["root"] = [self.width, self.height]  # back up the size of root window
+        self.width = self.__subWindows.winfo_screenwidth()  # make it large as the screen
         self.height = self.__subWindows.winfo_screenheight()
-        
-        self.__subWindows.overrideredirect(True)# remove tk default component(e.g. window close button)
+
+        self.__subWindows.overrideredirect(True)  # remove tk default component(e.g. window close button)
         self.__subWindows.attributes("-alpha", alphaValue)
-            
-        self.__subWindows.geometry("{0}x{1}+{2}+{3}"\
-            .format(self.width, self.height,0,0))
-        self.__subWindows.configure(bg = bgColor)
-        self.__num=6
+
+        self.__subWindows.geometry("{0}x{1}+{2}+{3}" \
+                                   .format(self.width, self.height, 0, 0))
+        self.__subWindows.configure(bg=bgColor)
+        self.__num = 6
         self.canvasPlace(target="sub")
-        
-        self.screenShot=1
+
+        self.screenShot = 1
         print("Screenshoter setted up")
-        if self.listener==None:
-            self.listener=eventMouse()
+        if self.listener == None:
+            self.listener = eventMouse()
             self.listener.StartListener()
-        
-    def Start(self,status):
+
+    def Start(self, status):
         print("111111111111111111111111")
         print(status)
         # print("Start:",self.statusID)
-        if status==1100:# 
+        if status == 1100:  #
             self.screenShotCreation()
             # self.subWindows.append(windowsUI(True,0.5,"black",listener=mouseL,screenShot=3))
             # print("!!!!!!!!!!!!!!!!!!")
             self.__root.attributes("-alpha", 0)
-            self.statusID=2000
+            self.statusID = 2000
             # print("Start:",self.statusID)
 
-        
     def keeper(self) -> None:
         # print("ID:",self.screenShot)
-        print("Status:",self.statusID)
+        print("Status:", self.statusID)
         # print(self.__subWindows)
-        if self.screenShot==1:
-            if self.drawer()==1:
+        if self.screenShot == 1:
+            if self.drawer() == 1:
                 self.__root.after(100, self.keeper)
 
-        elif self.screenShot==2:# mian panel mode
+        elif self.screenShot == 2:  # mian panel mode
             self.__root.after(100, self.keeper)
 
         # print(self.statusID==11)
-        
+
         # print(self.keyBoardInterrupt.statusGet())
-        if self.keyBoardInterrupt.statusGet()==2:
+        if self.keyBoardInterrupt.statusGet() == 2:
             # print("ssssssssssssssss",self.statusID)
-            if self.statusID==2000:
-                self.x=-10
-                self.y=-10
-                self.screenShot=2
+            if self.statusID == 2000:
+                self.x = -10
+                self.y = -10
+                self.screenShot = 2
                 self.__root.attributes("-alpha", self.alpha)
                 self.__subWindows.destroy()
                 self.listener.terminate()
-                self.listener=None
+                self.listener = None
                 self.keyBoardInterrupt.StartListener()
-                self.statusID=1000
+                self.statusID = 1000
 
-
-        
     def drawer(self) -> int:
         if self.listener != None:
 
@@ -446,19 +442,16 @@ class windowsUI():
             return -1
 
         return 1
-        
-    def canvasPlace(self,positionX=0,positionY=0,highlightthickness=0,bgColor="black",target="root") -> None:
 
-        if target=="sub":
-            self.__canvas=tkinter.Canvas(self.__subWindows,highlightthickness=\
-                highlightthickness,width=self.width, height=self.height,bg=bgColor)
+    def canvasPlace(self, positionX=0, positionY=0, highlightthickness=0, bgColor="black", target="root") -> None:
+
+        if target == "sub":
+            self.__canvas = tkinter.Canvas(self.__subWindows, highlightthickness= \
+                highlightthickness, width=self.width, height=self.height, bg=bgColor)
         else:
-            self.__canvas=tkinter.Canvas(self.__root,highlightthickness=\
-                highlightthickness,width=self.width, height=self.height,bg=bgColor)
-        self.__canvas.place(x=positionX,y=positionY)
-        
-    def rectangleCreation(self,positionX=0,positionY=0,rightX=0,rightY=0,outline="crimson",\
-        width=0,dash=(1,1)) ->None:
+            self.__canvas = tkinter.Canvas(self.__root, highlightthickness= \
+                highlightthickness, width=self.width, height=self.height, bg=bgColor)
+        self.__canvas.place(x=positionX, y=positionY)
 
     def rectangleCreation(self, positionX=0, positionY=0, rightX=0, rightY=0, outline="crimson", \
                           width=0, dash=(1, 1)) -> None:
@@ -476,20 +469,18 @@ class windowsUI():
         self.__canvas.coords(self.__rec[index], positionX, positionY, rightX, rightY)
         print("coorMoving:", self.__canvas.coords(self.__rec[-1]))
 
+        self.__canvas.itemconfigure(self.__rec[index], outline=outline, width=width, \
+                                    dash=dash)
 
-        self.__canvas.itemconfigure(self.__rec[index],outline=outline,width=width,\
-            dash=dash)
-        
-        self.__canvas.coords(self.__rec[index],positionX,positionY,rightX,rightY)
-        print("coorMoving:",self.__canvas.coords(self.__rec[-1]))
-        
+        self.__canvas.coords(self.__rec[index], positionX, positionY, rightX, rightY)
+        print("coorMoving:", self.__canvas.coords(self.__rec[-1]))
+
     # def closeWindow(self) -> None:
     #     self.__root.destroy()
-        
-    def getPositions(self)->list:
-        
-        return
 
+    def getPositions(self) -> list:
+
+        return
 
     def transform(self, canvas_rectangle):  # 将画布上的相对坐标转换成屏幕的绝对坐标
         coords = self.__canvas.coords(canvas_rectangle)  # 得到矩阵的坐标
