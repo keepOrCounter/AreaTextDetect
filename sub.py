@@ -4,6 +4,8 @@ import time
 import tkinter
 from tkinter.font import Font
 
+from pynput.mouse import Controller, Button
+
 
 class eventKeyboard():
     """
@@ -34,7 +36,6 @@ class eventKeyboard():
         self.__status = 0
 
     def pressed(self, key):
-
         # print("b")
         self.keysOkay = self.keysIntervalEnd - self.keysIntervalStart
         self.keysIntervalEnd = time.time()
@@ -61,11 +62,11 @@ class eventKeyboard():
             if self.activeFlag == -1:
                 self.__status = -1
                 return False
-
             self.timeIntervalStart = time.time()
             self.activeFlag = -1
 
     def StartListener(self) -> None:
+
         if self.__status == -1 or self.__status == 2:
             self.terminate()
             self.keyPressed = pynput.keyboard.Listener(on_press=self.pressed)
@@ -73,8 +74,8 @@ class eventKeyboard():
         self.__status = 1
         self.keyPressed.start()
         self.timeIntervalStart = time.time()
-
         self.begin = time.time() - 5
+
 
     def terminate(self) -> None:
         self.keyPressed.stop()
@@ -109,7 +110,6 @@ class eventMouse():
     """
 
     def __init__(self) -> None:
-
         self.timeIntervalStart = 0
         self.timeIntervalEnd = 0
 
@@ -118,6 +118,7 @@ class eventMouse():
 
         self.DetectedMouseXPos = -1
         self.DetectedMouseYPos = -1
+
 
         self.DetectedRightMouseXPos = -1
         self.DetectedRightMouseYPos = -1
@@ -133,13 +134,13 @@ class eventMouse():
 
         # mouseClicked.join()
 
+
     def moving(self, x, y):
         self.MotionMouseXPos = x
         self.MotionMouseYPos = y
 
         self.timeIntervalEndMotion = time.time()
         if self.timeIntervalEndMotion - self.timeIntervalStartMotion > 10.0:
-
             print("Times Up")
             if self.activeFlag2 == -1:
                 print("exit")
@@ -154,6 +155,7 @@ class eventMouse():
             self.DetectedMouseYPos = y
             # print(self.DetectedMouseXPos,self.DetectedMouseYPos)
 
+
         if pressed and button.name == "right":
             self.DetectedRightMouseXPos = x
             self.DetectedRightMouseYPos = y
@@ -166,7 +168,6 @@ class eventMouse():
             #             print("Times Up")
             if self.activeFlag1 == -1:
                 #                 print("exit")
-
                 return False
             self.timeIntervalStart = time.time()
             self.activeFlag1 = -1
@@ -185,17 +186,16 @@ class eventMouse():
         self.mouseMove.start()
 
         self.begin = time.time() - 5
-
     def terminate(self) -> None:
         self.mouseClicked.stop()
         self.mouseMove.stop()
+
 
     def mouseGet(self, side) -> int:
         if side == "left":
             return self.DetectedMouseXPos, self.DetectedMouseYPos
         elif side == "right":
             return self.DetectedRightMouseXPos, self.DetectedRightMouseYPos
-
     def motionGet(self) -> int:
         return self.MotionMouseXPos, self.MotionMouseYPos
 
@@ -265,7 +265,6 @@ class windowsUI():
 
         self.__loopTime = 0  # use to count the time, 0.1s every loop
         self.__counter = 0  # status id for drawer function
-
         self.__root = tkinter.Tk()
         self.windowSize = {"root": [width, height], "screenShoter": [0, 0]}  # all type of window size
 
@@ -277,6 +276,7 @@ class windowsUI():
         if self.screenShot == 1:
             self.__num = 6
             self.canvasPlace()
+
             if width == -1:
                 self.width = self.__root.winfo_screenwidth()
             if height == -1:
@@ -285,22 +285,25 @@ class windowsUI():
             # self.__root.overrideredirect(override)
             # self.__root.attributes("-alpha", alpha)
         elif self.screenShot == 2:
+
+
             # temx=200*(1280/self.screen.width)
             # temy=70*(720/self.screen.height)
             # print(temx,temy)
+            self.__root.title("Main panel")
             if width == -1:
                 self.width = int(self.__root.winfo_screenwidth() / 5)
             if height == -1:
                 self.height = int(self.width * 16 / 10)
             # print(self.width,self.height)
             self.layOutController()
-
         self.__root.overrideredirect(override)
         self.__root.attributes("-alpha", alpha)
 
         self.__root.geometry("{0}x{1}+{2}+{3}" \
                              .format(self.width, self.height, positionX, positionY))
         self.__root.configure(bg=bgColor)
+
         self.__root.resizable(0, 0)
 
         if self.listener != None:
@@ -310,6 +313,7 @@ class windowsUI():
         self.keeper()
 
         self.__root.mainloop()
+
 
     def layOutController(self, mode="root", view=0) -> None:
         if mode == "root":
@@ -378,6 +382,7 @@ class windowsUI():
     def keeper(self) -> None:
         # print("ID:",self.screenShot)
         print("Status:", self.statusID)
+        self.keyBoardInterrupt.activeFlagSet(1)
         # print(self.__subWindows)
         if self.screenShot == 1:
             if self.drawer() == 1:
@@ -396,11 +401,16 @@ class windowsUI():
                 self.y = -10
                 self.screenShot = 2
                 self.__root.attributes("-alpha", self.alpha)
+
+                for x in self.__rec:
+                    self.recoredArea.append(self.transform(x))
                 self.__subWindows.destroy()
                 self.listener.terminate()
                 self.listener = None
                 self.keyBoardInterrupt.StartListener()
                 self.statusID = 1000
+            else:
+                self.keyBoardInterrupt.StartListener()
 
     def drawer(self) -> int:
         if self.listener != None:
@@ -481,9 +491,9 @@ class windowsUI():
     # def closeWindow(self) -> None:
     #     self.__root.destroy()
 
-    def getPositions(self) -> list:
-
-        return
+    # def getPositions(self) -> list:
+    #
+    #     return
 
     def transform(self, canvas_rectangle):  # 将画布上的相对坐标转换成屏幕的绝对坐标
         coords = self.__canvas.coords(canvas_rectangle)  # 得到矩阵的坐标
@@ -506,6 +516,19 @@ class windowsUI():
 
         return monitor
 
+
+
+class mouse_control():
+    def __init__(self):
+        pass
+        self.mouse = Controller()
+
+    def move_and_press_mouse(self, x_position, y_position):
+        self.mouse.position = (x_position, y_position)  # Move the mouse to the position
+        self.mouse.press(Button.left)
+        self.mouse.release(Button.left)
+
+        # self.mouse.click(Button.left, 1) #点击鼠标的次数
 
 if __name__ == "__main__":
     # startEvent=eventKeyboard()
