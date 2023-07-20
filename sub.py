@@ -1,3 +1,5 @@
+import math
+
 import pynput
 import screeninfo
 import time
@@ -5,6 +7,8 @@ import tkinter
 from tkinter.font import Font
 
 from pynput.mouse import Controller, Button
+
+import pyautogui
 
 
 class eventKeyboard():
@@ -76,7 +80,6 @@ class eventKeyboard():
         self.timeIntervalStart = time.time()
         self.begin = time.time() - 5
 
-
     def terminate(self) -> None:
         self.keyPressed.stop()
 
@@ -119,7 +122,6 @@ class eventMouse():
         self.DetectedMouseXPos = -1
         self.DetectedMouseYPos = -1
 
-
         self.DetectedRightMouseXPos = -1
         self.DetectedRightMouseYPos = -1
 
@@ -133,7 +135,6 @@ class eventMouse():
         self.mouseMove = pynput.mouse.Listener(on_move=self.moving)
 
         # mouseClicked.join()
-
 
     def moving(self, x, y):
         self.MotionMouseXPos = x
@@ -154,7 +155,6 @@ class eventMouse():
             self.DetectedMouseXPos = x
             self.DetectedMouseYPos = y
             # print(self.DetectedMouseXPos,self.DetectedMouseYPos)
-
 
         if pressed and button.name == "right":
             self.DetectedRightMouseXPos = x
@@ -186,16 +186,17 @@ class eventMouse():
         self.mouseMove.start()
 
         self.begin = time.time() - 5
+
     def terminate(self) -> None:
         self.mouseClicked.stop()
         self.mouseMove.stop()
-
 
     def mouseGet(self, side) -> int:
         if side == "left":
             return self.DetectedMouseXPos, self.DetectedMouseYPos
         elif side == "right":
             return self.DetectedRightMouseXPos, self.DetectedRightMouseYPos
+
     def motionGet(self) -> int:
         return self.MotionMouseXPos, self.MotionMouseYPos
 
@@ -286,7 +287,6 @@ class windowsUI():
             # self.__root.attributes("-alpha", alpha)
         elif self.screenShot == 2:
 
-
             # temx=200*(1280/self.screen.width)
             # temy=70*(720/self.screen.height)
             # print(temx,temy)
@@ -313,7 +313,6 @@ class windowsUI():
         self.keeper()
 
         self.__root.mainloop()
-
 
     def layOutController(self, mode="root", view=0) -> None:
         if mode == "root":
@@ -517,10 +516,8 @@ class windowsUI():
         return monitor
 
 
-
 class mouse_control():
     def __init__(self):
-        pass
         self.mouse = Controller()
 
     def move_and_press_mouse(self, x_position, y_position):
@@ -528,7 +525,13 @@ class mouse_control():
         self.mouse.press(Button.left)
         self.mouse.release(Button.left)
 
-        # self.mouse.click(Button.left, 1) #点击鼠标的次数
+    def smooth(self, x_position, y_position, speed=1):
+        position_xy = pyautogui.position()
+        distance = math.sqrt(pow(x_position - position_xy[0], 2) + pow(y_position - position_xy[1], 2))
+        mouse_time = distance / speed
+        pyautogui.moveTo(x_position, y_position, mouse_time)
+
+
 
 if __name__ == "__main__":
     # startEvent=eventKeyboard()
