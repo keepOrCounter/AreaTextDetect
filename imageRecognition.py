@@ -1,7 +1,7 @@
 import numpy as np
 from PIL import Image
 import os,cv2
-import torch
+# import torch
 
 def resizer(path,flag=False):
     if not flag:
@@ -14,12 +14,12 @@ def resizer(path,flag=False):
 
             cv2.imwrite(path+"\\"+x, imageNew)
             
-    else:
-        image = cv2.imread(path+"\\"+x)
-
-        imageNew = cv2.resize(image, (100,100))
-        
-        return imageNew
+    # else:
+    #     image = cv2.imread(path+"\\"+x)
+    #
+    #     imageNew = cv2.resize(image, (100,100))
+    #
+    #     return imageNew
 
 def ind(x):
     return np.where(x==np.max(x))[0][0]
@@ -198,7 +198,7 @@ if __name__=="__main__":
     print(reshaped_array.shape)
     print(reshaped_array)
     print("-------------------")
-    w=l2ModelTrainer(reshaped_array,label,1)
+    w=l2ModelTrainer(reshaped_array,label)
     print(w.shape)
     print(w)
     np.save("w.npy",w,fix_imports=True)
