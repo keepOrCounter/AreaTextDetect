@@ -1,6 +1,7 @@
-import sub
+import sub,imageRecognition
 
 
-mouseL=sub.eventMouse()
-wind=sub.windowsUI(True,0.5,"black",listener=mouseL,screenShot=1)
-# wind=sub.windowsUI(True,0.5,"white",screenShot=2,width=1000,height=500,positionX=50,positionY=50)
+
+# mouseL=sub.eventMouse()
+# wind=sub.windowsUI(True,0.5,"black",listener=mouseL,screenShot=1)
+wind=sub.windowsUI(False,0.8,"black",screenShot=2,positionX=50,positionY=50)
