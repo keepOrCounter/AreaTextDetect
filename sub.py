@@ -24,40 +24,126 @@ class eventKeyboard():
         self.keysIntervalEnd=0
         
         self.activeFlag=-1
-        self.keyPressed=pynput.keyboard.Listener(on_press=self.pressed)
+        self.keyPressed=pynput.keyboard.Listener(on_press=self.pressed, on_release=self.released)
         self.counter=0
+        # self.shortcutThread = False
         
         self.__status=0
-        
+        self.shortcutFlag = False
+        self.recordKey = []
+
+        self.keyboard_key_dict = {
+    "\x01" : ['ctrl','a'],
+    "\x02" : ['ctrl','b'],
+    "\x03" : ['ctrl','c'],
+    "\x04" : ['ctrl','d'],
+    "\x05" : ['ctrl','e'],
+    "\x06" : ['ctrl','f'],
+    "\x07" : ['ctrl','g'],
+    "\x08" : ['ctrl','h'],
+    "\t"   : ['ctrl','i'],
+    "\n"   : ['ctrl','j'],
+    "\x0b" : ['ctrl','k'],
+    "\x0c" : ['ctrl','l'],
+    "\r"   : ['ctrl','m'],
+    "\x0e" : ['ctrl','n'],
+    "\x0f" : ['ctrl','o'],
+    "\x10" : ['ctrl','p'],
+    "\x11" : ['ctrl','q'],
+    "\x12" : ['ctrl','r'],
+    "\x13" : ['ctrl','s'],
+    "\x14" : ['ctrl','t'],
+    "\x15" : ['ctrl','u'],
+    "\x16" : ['ctrl','v'],
+    "\x17" : ['ctrl','w'],
+    "\x18" : ['ctrl','x'],
+    "\x19" : ['ctrl','y'],
+    "\x1a" : ['ctrl','z'],
+    "\x1f" : ['ctrl','shift','-'],
+    '<186>'  : ['ctrl',';'],
+    "<187>"  : ['ctrl','='],
+    "<189>"  : ['ctrl','-'],
+    "<192>"  : ['ctrl','`'],
+    "<222>"  : ['ctrl',r"'"],
+    "<48>"   : ['ctrl','0'],
+    "<49>"   : ['ctrl','1'],
+    "<50>"   : ['ctrl','2'],
+    "<51>"   : ['ctrl','3'],
+    "<52>"   : ['ctrl','4'],
+    "<53>"   : ['ctrl','5'],
+    "<54>"   : ['ctrl','6'],
+    "<55>"   : ['ctrl','7'],
+    "<56>"   : ['ctrl','8'],
+    "<57>"   : ['ctrl','9'],
+    "~"    : ['shift', '`'],
+    "!"    : ['shift', '1'],
+    "@"    : ['shift', '2'],
+    "#"    : ['shift', '3'],
+    "$"    : ['shift', '4'],
+    "%"    : ['shift', '5'],
+    "^"    : ['shift', '6'],
+    "*"    : ['shift', '7'],
+    "("    : ['shift', '8'],
+    ")"    : ['shift', '9'],
+    "_"    : ['shift', '-'],
+    "+"    : ['shift', '='],
+    ":"    : ['shift', ';'],
+    "\'"   : ['shift', "'"],
+    "<"    : ['shift', ","],
+    "{"    : ['shift', "["],
+    "}"    : ['shift', "]"],
+    "|"    : ['shift', "\\"],
+    "?"    : ['shift', "/"],
+}
+
     def pressed(self,key):
-        # print("b")
-        self.keysOkay=self.keysIntervalEnd-self.keysIntervalStart
-        self.keysIntervalEnd=time.time()
-        
-        if str(type(key))=="<enum 'Key'>":
-            if key.name=="alt_l":
-                self.counter=1
-                self.keysIntervalStart=time.time()
-            else:
-                self.counter=0
+
+        if self.shortcutFlag == True:
+            print("call target functions, not finished yet.")
         else:
-            self.keyValue=key.char
-            if key.char=="z" and self.counter==1 and (0.0<=self.keysOkay<=1.0):
-                self.__status=2
-                return False
+            print(key)
+            try:
+                self.recordKey.append("{}".format(key.char))
+            except:
+                self.recordKey.append("{}".format(key))
+
+        if len(self.recordKey) == 2:
+            if self.recordKey[0] == "Key.ctrl_l" or "Key.ctrl_r":
+                if self.recordKey[1] in self.keyboard_key_dict.keys():
+                    print("The recordKey is " + str(self.keyboard_key_dict[self.recordKey[1]]))
+                    print("Record the shortcut key.")
+            elif self.recordKey[0] == "Key.shift_l" or "Key.shift_r":
+                if self.recordKey[1] in self.keyboard_key_dict.keys():
+                    print("The recordKey is " + str(self.keyboard_key_dict[self.recordKey[1]]))
+                    print("Record the shortcut key.")
             else:
-                self.counter=0
-            # print(key.char=="z")
-        
-        self.timeIntervalEnd=time.time()
-        
-        if self.timeIntervalEnd-self.timeIntervalStart>10.0:
-            # print("Times Up")
-            if self.activeFlag==-1:
-                self.__status=-1
-                return False
-            self.timeIntervalStart=time.time()
-            self.activeFlag=-1
+                # print(type(self.recordKey[0]))
+                print("The recordKey is " + self.recordKey[0] + " + " + self.recordKey[1])
+                print("Record the shortcut key.")
+                
+            
+
+    def released(self,key):
+        try:
+            # print(self.recordKey)
+            try:
+                self.recordKey.remove("{}".format(key.char))
+            except:
+                self.recordKey.remove("{}".format(key))
+        except:
+            return False
+        # if key == pynput.keyboard.Key.esc: 
+        #     return False
+
+
+    def getShortcut(self,key):
+        """ 
+            please never call this function without a:
+            [with pynput.keyboard.Listener...as self.listener:] structure.
+        """
+        if key.char == "z":
+            self.shortcutListener.stop()
+        print(key)
         
     def StartListener(self) -> None:
         if self.__status==-1:
