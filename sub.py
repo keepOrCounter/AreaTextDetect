@@ -86,6 +86,7 @@ class eventKeyboard():
         end = time.time()
         dif = end - self.begin
         if dif >= 10:
+            print("Changed!!!!!!!!!!!!!!")
             self.activeFlag = flag
             self.begin = time.time()
 
@@ -240,7 +241,7 @@ class windowsUI():
     """
 
     def __init__(self, override=False, alpha=0.5, bgColor="black", screenShot=-1, \
-                 width=-1, height=-1, positionX=0, positionY=0, listener: eventMouse = None) -> None:
+                width=-1, height=-1, positionX=0, positionY=0, listener: eventMouse = None) -> None:
         # self.__timeList=[time.time(),0]
         self.listener = listener
         self.keyBoardInterrupt = eventKeyboard()
@@ -257,6 +258,7 @@ class windowsUI():
         self.__subWindows = None  # store windows created by event function Start()
 
         self.__rec = []  # store rectangle in canvas
+        self.recoredArea = [] # store recorded screen shot area
         self.x = -10  # store mouse click coordinations
         self.y = -10
 
@@ -288,6 +290,7 @@ class windowsUI():
             # temx=200*(1280/self.screen.width)
             # temy=70*(720/self.screen.height)
             # print(temx,temy)
+            self.__root.title("Main panel")
             if width == -1:
                 self.width = int(self.__root.winfo_screenwidth() / 5)
             if height == -1:
@@ -299,7 +302,7 @@ class windowsUI():
         self.__root.attributes("-alpha", alpha)
 
         self.__root.geometry("{0}x{1}+{2}+{3}" \
-                             .format(self.width, self.height, positionX, positionY))
+                            .format(self.width, self.height, positionX, positionY))
         self.__root.configure(bg=bgColor)
         self.__root.resizable(0, 0)
 
@@ -327,7 +330,7 @@ class windowsUI():
                 # print()
 
                 self.currentButton[-1].place(x=(self.width - lineWidth) / 2,
-                                             y=counter * self.height / (buttonNum + 1) - lineHeight / 2)
+                                            y=counter * self.height / (buttonNum + 1) - lineHeight / 2)
         else:
             pass
 
@@ -352,7 +355,7 @@ class windowsUI():
         self.__subWindows.attributes("-alpha", alphaValue)
 
         self.__subWindows.geometry("{0}x{1}+{2}+{3}" \
-                                   .format(self.width, self.height, 0, 0))
+                                .format(self.width, self.height, 0, 0))
         self.__subWindows.configure(bg=bgColor)
         self.__num = 6
         self.canvasPlace(target="sub")
@@ -378,6 +381,7 @@ class windowsUI():
     def keeper(self) -> None:
         # print("ID:",self.screenShot)
         print("Status:", self.statusID)
+        self.keyBoardInterrupt.activeFlagSet(1)
         # print(self.__subWindows)
         if self.screenShot == 1:
             if self.drawer() == 1:
@@ -396,11 +400,16 @@ class windowsUI():
                 self.y = -10
                 self.screenShot = 2
                 self.__root.attributes("-alpha", self.alpha)
+                for x in self.__rec:
+                    self.recoredArea.append(self.transform(x))
                 self.__subWindows.destroy()
                 self.listener.terminate()
                 self.listener = None
                 self.keyBoardInterrupt.StartListener()
                 self.statusID = 1000
+            else:
+                self.keyBoardInterrupt.StartListener()
+
 
     def drawer(self) -> int:
         if self.listener != None:
@@ -457,14 +466,14 @@ class windowsUI():
         self.__canvas.place(x=positionX, y=positionY)
 
     def rectangleCreation(self, positionX=0, positionY=0, rightX=0, rightY=0, outline="crimson", \
-                          width=0, dash=(1, 1)) -> None:
+                        width=0, dash=(1, 1)) -> None:
 
         self.__rec.append(self.__canvas.create_rectangle(positionX, positionY, rightX, rightY, \
-                                                         outline=outline, width=width, dash=dash))
+                                                        outline=outline, width=width, dash=dash))
         print("coor:", self.__canvas.coords(self.__rec[-1]))
 
     def rectangleConfigure(self, positionX=0, positionY=0, rightX=0, rightY=0, outline="crimson", \
-                           width=0, index=-1, dash=(1, 1)) -> None:
+                        width=0, index=-1, dash=(1, 1)) -> None:
 
         self.__canvas.itemconfigure(self.__rec[index], outline=outline, width=width, \
                                     dash=dash)
@@ -478,12 +487,6 @@ class windowsUI():
         self.__canvas.coords(self.__rec[index], positionX, positionY, rightX, rightY)
         print("coorMoving:", self.__canvas.coords(self.__rec[-1]))
 
-    # def closeWindow(self) -> None:
-    #     self.__root.destroy()
-
-    def getPositions(self) -> list:
-
-        return
 
     def transform(self, canvas_rectangle):  # 将画布上的相对坐标转换成屏幕的绝对坐标
         coords = self.__canvas.coords(canvas_rectangle)  # 得到矩阵的坐标
