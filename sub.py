@@ -146,15 +146,6 @@ class eventKeyboard():
         # if key == pynput.keyboard.Key.esc: 
         #     return False
 
-
-    def getShortcut(self,key):
-        """ 
-            please never call this function without a:
-            [with pynput.keyboard.Listener...as self.listener:] structure.
-        """
-        if key.char == "z":
-            self.shortcutListener.stop()
-        print(key)
         
     def StartListener(self) -> None:
 
