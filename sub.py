@@ -136,7 +136,7 @@ class eventKeyboard():
 
     def released(self,key):
         try:
-            # print(self.recordKey)
+            print("Released!!!",self.recordKey)
             try:
                 self.recordKey.remove("{}".format(key.char))
             except:
@@ -160,7 +160,7 @@ class eventKeyboard():
 
         if self.__status == -1 or self.__status == 2:
             self.terminate()
-            self.keyPressed = pynput.keyboard.Listener(on_press=self.pressed)
+            self.keyPressed=pynput.keyboard.Listener(on_press=self.pressed, on_release=self.released)
 
         self.__status = 1
         self.keyPressed.start()
@@ -633,7 +633,11 @@ if __name__ == "__main__":
     # # startEvent.activeFlagSet(1)
     # # time.sleep(15)
     # startEvent.terminate()
-    wind = windowsUI(True, 0.1, "black")
-    # time.sleep(5)
+    # wind = windowsUI(True, 0.1, "black")
+    # # time.sleep(5)
 
-    print("a")
+    # print("a")
+    keyTest=eventKeyboard()
+    keyTest.StartListener()
+    time.sleep(10)
+    keyTest.terminate()
