@@ -600,7 +600,9 @@ class mouse_control():
 
     def move_and_press_mouse(self, x_position, y_position):
         self.mouse.position = (x_position, y_position)  # Move the mouse to the position
+        time.sleep(0.1)
         self.mouse.press(Button.left)
+        time.sleep(0.1)
         self.mouse.release(Button.left)
 
     def smooth(self, x_position, y_position, speed=1):
