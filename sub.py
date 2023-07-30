@@ -1,5 +1,5 @@
 import math
-
+import copy
 import pynput
 import screeninfo
 import time
@@ -21,27 +21,28 @@ class eventKeyboard():
     StartListener(): start the listener, also safe for any unterminate listener.
     terminate(): end the listener
     
-    statusGet(): return listener status, 0 for initiated, 1 for started, 2 for specific keys were pressed,
+    statusGet(): return listener status, 0 for initiated, 1 for started, >=2 for specific keys were pressed,
         -1 for terminated.
     """
 
     def __init__(self) -> None:
 
-        self.keyValue=-1
-        self.timeIntervalStart=0
-        self.timeIntervalEnd=0
+        self.keyValue = -1
+        self.timeIntervalStart = 0
+        self.timeIntervalEnd = 0
         
-        self.keysIntervalStart=0
-        self.keysIntervalEnd=0
+        self.keysIntervalStart = 0
+        self.keysIntervalEnd = 0
         
-        self.activeFlag=-1
-        self.keyPressed=pynput.keyboard.Listener(on_press=self.pressed, on_release=self.released)
-        self.counter=0
+        self.activeFlag = -1
+        self.keyPressed = pynput.keyboard.Listener(on_press = self.pressed, on_release = self.released)
+        self.counter = 0
         # self.shortcutThread = False
         
-        self.__status=0
+        self.__status = 0
         self.shortcutFlag = False
         self.recordKey = []
+        self.recordedshortcut = {"Key.alt_lz": 2} # Key.alt_lz is default shortcut
 
         self.keyboard_key_dict = {
     "\x01" : ['ctrl','a'],
@@ -108,48 +109,87 @@ class eventKeyboard():
 }
 
     def pressed(self,key):
-
-        if self.shortcutFlag == True:
-            print("call target functions, not finished yet.")
-        else:
-            print(key)
-            try:
-                self.recordKey.append("{}".format(key.char))
-            except:
-                self.recordKey.append("{}".format(key))
-
+        try:
+            self.recordKey.append("{}".format(key.char))
+        except:
+            self.recordKey.append("{}".format(key))
+        # print(self.recordKey)
+        
         if len(self.recordKey) == 2:
-            if self.recordKey[0] == "Key.ctrl_l" or "Key.ctrl_r":
+            # print("recordKey",self.recordKey[0])
+            if self.recordKey[0] == "Key.ctrl_l" or self.recordKey[0] == "Key.ctrl_r":
+                # print("---------------------")
                 if self.recordKey[1] in self.keyboard_key_dict.keys():
-                    print("The recordKey is " + str(self.keyboard_key_dict[self.recordKey[1]]))
-                    print("Record the shortcut key.")
-            elif self.recordKey[0] == "Key.shift_l" or "Key.shift_r":
+                    # print(key)
+                    # print("The recordKey is " + str(self.keyboard_key_dict[self.recordKey[1]]))
+                    # print("Record the shortcut key.")
+                    self.recordKey[1] = copy.copy(self.keyboard_key_dict[self.recordKey[1]][1])
+
+            elif self.recordKey[0] == "Key.shift" or self.recordKey[0] == "Key.shift_r":
+                # print("+++++++++++++++++++=")
                 if self.recordKey[1] in self.keyboard_key_dict.keys():
-                    print("The recordKey is " + str(self.keyboard_key_dict[self.recordKey[1]]))
-                    print("Record the shortcut key.")
+                    # print("The recordKey is " + str(self.keyboard_key_dict[self.recordKey[1]]))
+                    # print("Record the shortcut key.")
+                    self.recordKey[1] = copy.copy(self.keyboard_key_dict[self.recordKey[1]][1])
+
+            if self.shortcutFlag == False:
+                # print("call target functions, not finished yet.")
+                    # else:
+                    #     # print(type(self.recordKey[0]))
+                    #     print("The recordKey is " + self.recordKey[0] + " + " + self.recordKey[1])
+                    #     print("Record the shortcut key.")
+                    #     print("sssssssssssssssssssssss")
+                    tem = self.recordKey[0] + self.recordKey[1]
+                    if tem in self.recordedshortcut.keys():
+                        self.__status = self.recordedshortcut[tem] # Change status if user triggered a shortcut
+        
+        if time.time() - self.timeIntervalStart > 10.0:
+            if self.activeFlag == -1: # check if main thread is active, if not, kill sub thread
+                self.__status = -1
+                return False
             else:
-                # print(type(self.recordKey[0]))
-                print("The recordKey is " + self.recordKey[0] + " + " + self.recordKey[1])
-                print("Record the shortcut key.")
-                
-            
+                self.activeFlag = -1
+                self.timeIntervalStart = time.time()
 
     def released(self,key):
         try:
-            print("Released!!!",self.recordKey)
-            try:
-                self.recordKey.remove("{}".format(key.char))
-            except:
-                self.recordKey.remove("{}".format(key))
+            tem = str(key.char)
         except:
-            return False
+            tem = str(key)
+            
+        if tem in self.keyboard_key_dict.keys():
+            tem=self.keyboard_key_dict[tem][1]
+            
+        if self.shortcutFlag and len(self.recordKey) == 2: # record shortcut
+            if len(list(self.recordedshortcut.keys())) == 0:
+                self.recordedshortcut[self.recordKey[0] + self.recordKey[1]] = 2
+            else:
+                if (self.recordKey[0] + self.recordKey[1]) not in self.recordedshortcut.keys():
+                    self.recordedshortcut[self.recordKey[0] + self.recordKey[1]] = \
+                        self.recordedshortcut[list(self.recordedshortcut.keys())[-1]] + 1
+            # print(self.recordedshortcut)
+            self.shortcutFlag = False
+        
+        # print("Released!!!",self.recordKey)
+        # try:
+        #     self.recordKey.remove("{}".format(key.char))
+        # except:
+        self.recordKey.remove("{}".format(tem))
+        
+        if time.time() - self.timeIntervalStart > 10.0:
+            if self.activeFlag == -1: # check if main thread is active, if not, kill sub thread
+                self.__status = -1
+                return False
+            else:
+                self.activeFlag = -1
+                self.timeIntervalStart = time.time()
         # if key == pynput.keyboard.Key.esc: 
         #     return False
 
         
     def StartListener(self) -> None:
 
-        if self.__status == -1 or self.__status == 2:
+        if self.__status == -1:
             self.terminate()
             self.keyPressed=pynput.keyboard.Listener(on_press=self.pressed, on_release=self.released)
 
@@ -167,12 +207,18 @@ class eventKeyboard():
     def activeFlagSet(self, flag) -> None:
         end = time.time()
         dif = end - self.begin
-        if dif >= 10:
+        if self.__status == -1:
+            self.StartListener()
+        elif dif >= 10.0:
             self.activeFlag = flag
             self.begin = time.time()
 
-    def statusGet(self) -> str:
-        return self.__status
+    def statusGet(self) -> int:
+        result = self.__status
+        if self.__status > 1:
+            self.__status = 1
+            
+        return result
 
 
 class eventMouse():
@@ -196,6 +242,9 @@ class eventMouse():
 
         self.activeFlag1 = -1
         self.activeFlag2 = -1
+        
+        self.__status1 = 0
+        self.__status2 = 0
 
         self.DetectedMouseXPos = -1
         self.DetectedMouseYPos = -1
@@ -220,9 +269,10 @@ class eventMouse():
 
         self.timeIntervalEndMotion = time.time()
         if self.timeIntervalEndMotion - self.timeIntervalStartMotion > 10.0:
-            print("Times Up")
+            # print("Times Up")
             if self.activeFlag2 == -1:
-                print("exit")
+                # print("exit")
+                self.__status2 = -1
                 return False
             self.timeIntervalStartMotion = time.time()
             self.activeFlag2 = -1
@@ -246,6 +296,7 @@ class eventMouse():
             #             print("Times Up")
             if self.activeFlag1 == -1:
                 #                 print("exit")
+                self.__status1 = -1
                 return False
             self.timeIntervalStart = time.time()
             self.activeFlag1 = -1
@@ -257,6 +308,12 @@ class eventMouse():
         # return True
 
     def StartListener(self) -> None:
+        
+        if self.__status1 == -1 or self.__status2 == -1:
+            self.terminate()
+            self.mouseClicked = pynput.mouse.Listener(on_click=self.clicked)
+            self.mouseMove = pynput.mouse.Listener(on_move=self.moving)
+        
         self.timeIntervalStart = time.time()
         self.mouseClicked.start()
 
@@ -281,7 +338,10 @@ class eventMouse():
     def activeFlagSet(self, newFlag) -> None:
         end = time.time()
         dif = end - self.begin
-        if dif >= 10:
+        
+        if self.__status1 == -1 or self.__status2 == -1:
+            self.StartListener()
+        elif dif >= 10:
             self.activeFlag1 = newFlag  # 检测点击的flag
             self.activeFlag2 = newFlag  # 检测移动的flag
             self.begin = time.time()
@@ -336,13 +396,14 @@ class windowsUI():
         self.__subWindows = None  # store windows created by event function Start()
 
         self.__rec = []  # store rectangle in canvas
+        self.recoredArea = [] # store recorded screen shot area
         self.x = -10  # store mouse click coordinations
         self.y = -10
 
         self.xRight = -1  # store mouse move coordinations
         self.yRight = -1
 
-        self.__loopTime = 0  # use to count the time, 0.1s every loop
+        # self.__loopTime = 0  # use to count the time, 0.1s every loop
         self.__counter = 0  # status id for drawer function
         self.__root = tkinter.Tk()
         self.windowSize = {"root": [width, height], "screenShoter": [0, 0]}  # all type of window size
@@ -481,13 +542,11 @@ class windowsUI():
 
                 for x in self.__rec:
                     self.recoredArea.append(self.transform(x))
+                    print(self.transform(x))
                 self.__subWindows.destroy()
                 self.listener.terminate()
                 self.listener = None
-                self.keyBoardInterrupt.StartListener()
                 self.statusID = 1000
-            else:
-                self.keyBoardInterrupt.StartListener()
 
     def drawer(self) -> int:
         if self.listener != None:
@@ -631,6 +690,8 @@ if __name__ == "__main__":
 
     # print("a")
     keyTest=eventKeyboard()
+    # keyTest.shortcutFlag=True
     keyTest.StartListener()
     time.sleep(10)
+    print(keyTest.statusGet())
     keyTest.terminate()
