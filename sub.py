@@ -4,11 +4,13 @@ import pynput
 import screeninfo
 import time
 import tkinter
+import pytesseract
 from tkinter.font import Font
-
+from mss import mss
 from pynput.mouse import Controller, Button
-
+import numpy as np
 import pyautogui
+import cv2
 
 
 class eventKeyboard():
@@ -399,6 +401,7 @@ class windowsUI():
         self.recoredArea = [] # store recorded screen shot area
         self.x = -10  # store mouse click coordinations
         self.y = -10
+        self.ocr=OCRController()
 
         self.xRight = -1  # store mouse move coordinations
         self.yRight = -1
@@ -543,10 +546,17 @@ class windowsUI():
                 for x in self.__rec:
                     self.recoredArea.append(self.transform(x))
                     print(self.transform(x))
+                self.__rec.clear()
                 self.__subWindows.destroy()
                 self.listener.terminate()
                 self.listener = None
                 self.statusID = 1000
+        
+        if len(self.recoredArea)==1:
+            
+            text=self.ocr.areTextTransfer(self.recoredArea.pop(),"chi_sim+eng",r'--oem 3 --psm 6')
+            print(text)
+            print(self.recoredArea)
 
     def drawer(self) -> int:
         if self.listener != None:
@@ -618,18 +628,12 @@ class windowsUI():
         self.__canvas.coords(self.__rec[index], positionX, positionY, rightX, rightY)
         print("coorMoving:", self.__canvas.coords(self.__rec[-1]))
 
-        self.__canvas.itemconfigure(self.__rec[index], outline=outline, width=width, \
-                                    dash=dash)
+        # self.__canvas.itemconfigure(self.__rec[index], outline=outline, width=width, \
+        #                             dash=dash)
 
-        self.__canvas.coords(self.__rec[index], positionX, positionY, rightX, rightY)
-        print("coorMoving:", self.__canvas.coords(self.__rec[-1]))
+        # self.__canvas.coords(self.__rec[index], positionX, positionY, rightX, rightY)
+        # print("coorMoving:", self.__canvas.coords(self.__rec[-1]))
 
-    # def closeWindow(self) -> None:
-    #     self.__root.destroy()
-
-    # def getPositions(self) -> list:
-    #
-    #     return
 
     def transform(self, canvas_rectangle):  # 将画布上的相对坐标转换成屏幕的绝对坐标
         coords = self.__canvas.coords(canvas_rectangle)  # 得到矩阵的坐标
@@ -644,10 +648,10 @@ class windowsUI():
         tem_right_y = tem_right_y * self.screen.width / self.width
 
         monitor = {
-            "top": tem_left_x,
-            "left": tem_left_y,
-            "width": tem_right_x - tem_left_x,
-            "height": tem_right_y - tem_left_y
+            "top": int(tem_left_y),
+            "left": int(tem_left_x),
+            "width": int(tem_right_x - tem_left_x),
+            "height": int(tem_right_y - tem_left_y)
         }
 
         return monitor
@@ -664,13 +668,37 @@ class mouse_control():
         time.sleep(0.1)
         self.mouse.release(Button.left)
 
-    def smooth(self, x_position, y_position, speed=1):
+    def smooth(self, x_position, y_position, speed=150):
         position_xy = pyautogui.position()
         distance = math.sqrt(pow(x_position - position_xy[0], 2) + pow(y_position - position_xy[1], 2))
+        print(distance)
         mouse_time = distance / speed
+        print(mouse_time)
         pyautogui.moveTo(x_position, y_position, mouse_time)
 
 
+class OCRController():
+    def __init__(self) -> None:
+        pytesseract.pytesseract.tesseract_cmd = r"C:\\Users\\HP\\AppData\\Local\\Programs\\Tesseract-OCR\\tesseract.exe"
+        self.sct = mss()
+        
+    def areTextTransfer(self,targetArea:dict,lang:str,config:str):
+        screen = np.array(self.sct.grab(targetArea))
+
+        gray_image = cv2.cvtColor(screen, cv2.COLOR_BGR2GRAY)
+
+        enhanced = cv2.convertScaleAbs(gray_image, alpha=3.0)
+
+        threshold_image = cv2.threshold(enhanced, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
+
+        cv2.namedWindow("Hello", cv2.WINDOW_AUTOSIZE)
+        cv2.imshow("Hello", threshold_image)
+        cv2.waitKey(0)
+        # end1=time.time()
+
+        # print(pytesseract.get_languages(config=''))
+        text = pytesseract.image_to_string(threshold_image, lang=lang, config=config)
+        return text
 
 if __name__ == "__main__":
     # startEvent=eventKeyboard()
@@ -689,9 +717,15 @@ if __name__ == "__main__":
     # # time.sleep(5)
 
     # print("a")
-    keyTest=eventKeyboard()
-    # keyTest.shortcutFlag=True
-    keyTest.StartListener()
-    time.sleep(10)
-    print(keyTest.statusGet())
-    keyTest.terminate()
+    # keyTest=eventKeyboard()
+    # # keyTest.shortcutFlag=True
+    # keyTest.StartListener()
+    # time.sleep(10)
+    # print(keyTest.statusGet())
+    # keyTest.terminate()
+    # con=mouse_control()
+    # con.move_and_press_mouse(636,21)
+    # con.smooth(1913,195,500)
+    ocr=OCRController()
+    text=ocr.areTextTransfer({"top": 398, "left": 482, "width": 50, "height": 50},"chi_sim+eng",r'--oem 3 --psm 6 -c tessedit_char_whitelist=#♡※✰')
+    print(text)
