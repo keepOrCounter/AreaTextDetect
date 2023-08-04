@@ -700,6 +700,9 @@ class OCRController():
         text = pytesseract.image_to_string(threshold_image, lang=lang, config=config)
         return text
 
+class edit_excel():
+    pass
+
 if __name__ == "__main__":
     # startEvent=eventKeyboard()
     # startEvent.StartListener()
