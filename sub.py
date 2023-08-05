@@ -11,7 +11,7 @@ from pynput.mouse import Controller, Button
 import numpy as np
 import pyautogui
 import cv2
-import paddleocr
+from paddleocr import PaddleOCR
 import os
 
 
@@ -403,7 +403,9 @@ class windowsUI():
         self.recoredArea = [] # store recorded screen shot area
         self.x = -10  # store mouse click coordinations
         self.y = -10
-        self.ocr=OCRController()
+        
+        dbManagement = edit_excel()
+        self.ocr = OCRController(dbManagement.currentPath)
 
         self.xRight = -1  # store mouse move coordinations
         self.yRight = -1
@@ -556,10 +558,8 @@ class windowsUI():
         
         if len(self.recoredArea)==1:
             tem=self.recoredArea.pop()
-            text=self.ocr.areTextTransfer(tem,r'--oem 3 --psm 6 -c tessedit_char_whitelist=0123456789')
-            text2=self.ocr.areTextTransfer(tem,r'--oem 1 --psm 7')
+            text=self.ocr.areTextTransfer(tem)
             print(text)
-            print(text2)
             print(self.recoredArea)
 
     def drawer(self) -> int:
@@ -682,27 +682,32 @@ class mouse_control():
 
 
 class OCRController():
-    def __init__(self) -> None:
+    def __init__(self, path) -> None:
         # pytesseract.pytesseract.tesseract_cmd = r""
         self.sct = mss()
+        self.currentPath = path
+        self.ocr = PaddleOCR(use_angle_cls = True, lang = "ch",
+                rec_model_dir = self.currentPath + "\\inference\\recognize\\",
+                cls_model_dir = self.currentPath + "\\inference\\cls\\",
+                det_model_dir = self.currentPath + "\\inference\\det\\") 
         
-    def areTextTransfer(self,targetArea:dict,config:str):
+    def areTextTransfer(self, targetArea:dict) -> list[str]:
         screen = np.array(self.sct.grab(targetArea))
-
-        gray_image = cv2.cvtColor(screen, cv2.COLOR_BGR2GRAY)
-
-        # enhanced = cv2.convertScaleAbs(gray_image, alpha=3.0)
-
-        threshold_image = cv2.threshold(gray_image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
-
-        cv2.namedWindow("Hello", cv2.WINDOW_AUTOSIZE)
-        cv2.imshow("Hello", threshold_image)
-        cv2.waitKey(0)
+        image_rgb = cv2.cvtColor(screen, cv2.COLOR_BGR2RGB)
+        
+        result = self.ocr.ocr(image_rgb, cls=True)
+        txts = []
+        for x in result:
+            # boxes = [line[0] for line in x]
+            txts = [line[1][0] for line in x]
+        # cv2.namedWindow("Hello", cv2.WINDOW_AUTOSIZE)
+        # cv2.imshow("Hello", screen)
+        # cv2.waitKey(0)
         # end1=time.time()
 
         # print(pytesseract.get_languages(config=''))
-        text = pytesseract.image_to_string(threshold_image, config=config)
-        return text
+        # text = pytesseract.image_to_string(threshold_image, config=config)
+        return txts
 
 class edit_excel():
     def __init__(self) -> None:
