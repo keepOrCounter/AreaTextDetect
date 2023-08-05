@@ -705,7 +705,8 @@ class OCRController():
         return text
 
 class edit_excel():
-    pass
+    def __init__(self) -> None:
+        self.currentPath = os.getcwd()
 
 if __name__ == "__main__":
     # startEvent=eventKeyboard()
