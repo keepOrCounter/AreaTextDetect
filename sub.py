@@ -11,6 +11,8 @@ from pynput.mouse import Controller, Button
 import numpy as np
 import pyautogui
 import cv2
+import paddleocr
+import os
 
 
 class eventKeyboard():
@@ -553,9 +555,11 @@ class windowsUI():
                 self.statusID = 1000
         
         if len(self.recoredArea)==1:
-            
-            text=self.ocr.areTextTransfer(self.recoredArea.pop(),"chi_sim+eng",r'--oem 3 --psm 6')
+            tem=self.recoredArea.pop()
+            text=self.ocr.areTextTransfer(tem,r'--oem 3 --psm 6 -c tessedit_char_whitelist=0123456789')
+            text2=self.ocr.areTextTransfer(tem,r'--oem 1 --psm 7')
             print(text)
+            print(text2)
             print(self.recoredArea)
 
     def drawer(self) -> int:
@@ -679,17 +683,17 @@ class mouse_control():
 
 class OCRController():
     def __init__(self) -> None:
-        pytesseract.pytesseract.tesseract_cmd = r"C:\\Users\\HP\\AppData\\Local\\Programs\\Tesseract-OCR\\tesseract.exe"
+        # pytesseract.pytesseract.tesseract_cmd = r""
         self.sct = mss()
         
-    def areTextTransfer(self,targetArea:dict,lang:str,config:str):
+    def areTextTransfer(self,targetArea:dict,config:str):
         screen = np.array(self.sct.grab(targetArea))
 
         gray_image = cv2.cvtColor(screen, cv2.COLOR_BGR2GRAY)
 
-        enhanced = cv2.convertScaleAbs(gray_image, alpha=3.0)
+        # enhanced = cv2.convertScaleAbs(gray_image, alpha=3.0)
 
-        threshold_image = cv2.threshold(enhanced, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
+        threshold_image = cv2.threshold(gray_image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
 
         cv2.namedWindow("Hello", cv2.WINDOW_AUTOSIZE)
         cv2.imshow("Hello", threshold_image)
@@ -697,7 +701,7 @@ class OCRController():
         # end1=time.time()
 
         # print(pytesseract.get_languages(config=''))
-        text = pytesseract.image_to_string(threshold_image, lang=lang, config=config)
+        text = pytesseract.image_to_string(threshold_image, config=config)
         return text
 
 if __name__ == "__main__":
