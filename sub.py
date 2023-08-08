@@ -4,7 +4,6 @@ import pynput
 import screeninfo
 import time
 import tkinter
-import pytesseract
 from tkinter.font import Font
 from mss import mss
 from pynput.mouse import Controller, Button
@@ -13,6 +12,7 @@ import pyautogui
 import cv2
 from paddleocr import PaddleOCR
 import os
+from sklearn.cluster import KMeans
 
 
 class eventKeyboard():
@@ -597,8 +597,8 @@ class windowsUI():
         
         if len(self.recoredArea)==1: # test
             tem=self.recoredArea.pop()
-            text=self.ocr.areTextTransfer(tem)
-            print(text)
+            # text=self.ocr.areTextTransfer(tem)
+            self.ocr.textboxSeeker(tem)
             print(self.recoredArea)
             
             
@@ -767,6 +767,47 @@ class OCRController():
         # print(pytesseract.get_languages(config=''))
         # text = pytesseract.image_to_string(threshold_image, config=config)
         return txts
+    
+    def textboxSeeker(self, targetArea:dict, mode = "length"):
+        screen = np.array(self.sct.grab(targetArea))
+        print(screen.shape)
+        print(screen)
+        gray_image = cv2.cvtColor(screen, cv2.COLOR_BGR2GRAY)
+        print(gray_image.shape)
+        gray_image = np.array(gray_image, dtype = np.int32)
+        print(gray_image)
+        print("-----------------------")
+        
+        modes = np.apply_along_axis(self.__modeGetter, 1, gray_image)
+        print(modes)
+        print(modes.shape)
+        scaled_data = modes/255
+        
+        scaled_data = np.reshape(scaled_data, (-1, 1))
+        print(scaled_data)
+        scaled_data = np.insert(scaled_data, 1, 0,axis=1)
+        print(scaled_data)
+        print(">>>>>>>>>>>>>>>>>>>>>>")
+        
+        kmeans = KMeans(n_clusters=2, random_state=0, max_iter=500)
+        kmeans.fit(scaled_data)
+        labels = kmeans.labels_
+        centroids = kmeans.cluster_centers_
+        print(centroids)
+        print(labels)
+        class1 = np.where(labels == 0)[0]
+        class2 = np.where(labels == 1)[0]
+        print(modes[class1])
+        print("<<<<<<<<<<<<<<<")
+        print(modes[class2])
+        # new_samples = scaler.transform(new_data)  # Scale the new samples
+        # predicted_labels = kmeans.predict(new_samples)
+
+        
+    def __modeGetter(self,npArray):
+        counts = np.bincount(npArray)
+        
+        return np.argmax(counts)
 
 class edit_excel():
     def __init__(self) -> None:
@@ -795,11 +836,11 @@ if __name__ == "__main__":
     # time.sleep(10)
     # print(keyTest.statusGet())
     # keyTest.terminate()
-    con=mouse_control()
+    # con=mouse_control()
     # con.move_and_press_mouse(636,21)
-    con.mouse.press(Button.left)
-    con.smooth(1913,195,500)
-    con.mouse.release(Button.left)
-    # ocr=OCRController()
-    # text=ocr.areTextTransfer({"top": 398, "left": 482, "width": 50, "height": 50},"chi_sim+eng",r'--oem 3 --psm 6 -c tessedit_char_whitelist=#♡※✰')
+    # con.mouse.press(Button.left)
+    # con.smooth(1913,195,500)
+    # con.mouse.release(Button.left)
+    ocr=OCRController(os.getcwd())
+    text=ocr.textboxSeeker({"top": 0, "left": 0, "width": 1920, "height": 1080})
     # print(text)
