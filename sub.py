@@ -596,9 +596,27 @@ class windowsUI():
 
         
         if len(self.recoredArea)==1: # test
-            tem=self.recoredArea.pop()
+            tem = self.recoredArea.pop()
             # text=self.ocr.areTextTransfer(tem)
-            self.ocr.textboxSeeker(tem)
+            textBoxes = self.ocr.textboxSeekerTrainer(tem)
+            self.statusID = 3000
+            self.screenShotCreation()
+            counter = 0
+            for x in textBoxes:
+                leftX = (x["left"] * self.width) / self.screen.width  # 转换相对坐标。
+                leftY = (x["top"] * self.height) / self.screen.height
+                
+                rightX = ((x["left"] + x["width"]) * self.width) / self.screen.width  # 转换相对坐标。
+                rightY = ((x["top"] + x["height"]) * self.height) / self.screen.height
+                if counter == 0:
+                    self.rectangleCreation(leftX, leftY, rightX, rightY, "crimson")
+                elif counter == 1:
+                    self.rectangleCreation(leftX, leftY, rightX, rightY, "blue")
+                else:
+                    self.rectangleCreation(leftX, leftY, rightX, rightY, "green")
+                counter += 1
+                if counter % 3 == 0:
+                    counter = 0
             print(self.recoredArea)
             
             
@@ -616,6 +634,22 @@ class windowsUI():
                     self.recoredArea.append(self.transform(x))
                     print(self.transform(x))
                 self.__rec.clear()
+                self.__canvas.destroy()
+                self.__subWindows.destroy()
+                self.listener.terminate()
+                self.listener = None
+                self.statusID = 1000
+                
+        elif self.statusID == 3000:
+            if self.keyBoardInterrupt.statusGet() == 2:
+                # print("ssssssssssssssss",self.statusID)
+                self.x = -10
+                self.y = -10
+                self.screenShot = 2
+                self.__root.attributes("-alpha", self.alpha)
+
+                self.__rec.clear()
+                self.__canvas.destroy()
                 self.__subWindows.destroy()
                 self.listener.terminate()
                 self.listener = None
@@ -676,14 +710,14 @@ class windowsUI():
         self.__canvas.place(x=positionX, y=positionY)
 
     def rectangleCreation(self, positionX=0, positionY=0, rightX=0, rightY=0, outline="crimson", \
-                          width=0, dash=(1, 1)) -> None:
+                          width=3, dash=(1, 1)) -> None:
 
         self.__rec.append(self.__canvas.create_rectangle(positionX, positionY, rightX, rightY, \
                                                          outline=outline, width=width, dash=dash))
         print("coor:", self.__canvas.coords(self.__rec[-1]))
 
     def rectangleConfigure(self, positionX=0, positionY=0, rightX=0, rightY=0, outline="crimson", \
-                           width=0, index=-1, dash=(1, 1)) -> None:
+                           width=3, index=-1, dash=(1, 1)) -> None:
 
         self.__canvas.itemconfigure(self.__rec[index], outline=outline, width=width, \
                                     dash=dash)
@@ -749,6 +783,11 @@ class OCRController():
                 rec_model_dir = self.currentPath + "\\inference\\recognize\\",
                 cls_model_dir = self.currentPath + "\\inference\\cls\\",
                 det_model_dir = self.currentPath + "\\inference\\det\\") 
+
+        self.modelLabels = []
+        self.centroids = []
+        self.kmeans = None
+
         
     def areTextTransfer(self, targetArea:dict) -> list[str]:
         screen = np.array(self.sct.grab(targetArea))
@@ -768,40 +807,60 @@ class OCRController():
         # text = pytesseract.image_to_string(threshold_image, config=config)
         return txts
     
-    def textboxSeeker(self, targetArea:dict, mode = "length"):
+    def textboxSeekerTrainer(self, targetArea:dict, heightOfTarget:int) -> list[dict]:
         screen = np.array(self.sct.grab(targetArea))
-        print(screen.shape)
-        print(screen)
+        # print(screen.shape)
+        # print(screen)
         gray_image = cv2.cvtColor(screen, cv2.COLOR_BGR2GRAY)
-        print(gray_image.shape)
+        # print(gray_image.shape)
         gray_image = np.array(gray_image, dtype = np.int32)
-        print(gray_image)
-        print("-----------------------")
+        # print(gray_image)
+        # print("-----------------------")
         
-        modes = np.apply_along_axis(self.__modeGetter, 1, gray_image)
-        print(modes)
-        print(modes.shape)
-        scaled_data = modes/255
+        patterns = np.apply_along_axis(self.__modeGetter, 1, gray_image) # modes of each row
+        # print(patterns)
+        # print(patterns.shape)
+        scaled_data = np.divide(patterns,255)
         
         scaled_data = np.reshape(scaled_data, (-1, 1))
-        print(scaled_data)
+        # print(scaled_data)
         scaled_data = np.insert(scaled_data, 1, 0,axis=1)
-        print(scaled_data)
-        print(">>>>>>>>>>>>>>>>>>>>>>")
+        # print(scaled_data)
+        # print(">>>>>>>>>>>>>>>>>>>>>>")
         
-        kmeans = KMeans(n_clusters=2, random_state=0, max_iter=500)
-        kmeans.fit(scaled_data)
-        labels = kmeans.labels_
-        centroids = kmeans.cluster_centers_
-        print(centroids)
-        print(labels)
-        class1 = np.where(labels == 0)[0]
-        class2 = np.where(labels == 1)[0]
-        print(modes[class1])
-        print("<<<<<<<<<<<<<<<")
-        print(modes[class2])
+        self.kmeans = KMeans(n_clusters=2, random_state=0, max_iter=500)
+        self.kmeans.fit(scaled_data)
+        self.modelLabels = self.kmeans.labels_
+        self.centroids = self.kmeans.cluster_centers_
+        # print(self.centroids)
+        # print(self.modelLabels)
+        # class1 = np.where(self.modelLabels == 0)[0]
+        class2 = np.where(self.modelLabels == 1)[0]
+        result = []
+        node = 0
+        lastNode = 0
+        for x in range(class2.shape[0]):
+            if class2[x] > node:
+                if node > (lastNode + 1):
+                    tem=copy.deepcopy(targetArea)
+                    tem["top"] = lastNode + targetArea["top"]
+                    tem["height"] = node - lastNode
+                    result.append(tem)
+                    
+                tem=copy.deepcopy(targetArea)
+                tem["top"] = node + targetArea["top"]
+                tem["height"] = class2[x] - node
+                result.append(tem)
+                lastNode = copy.deepcopy(class2[x])
+                node = copy.deepcopy(class2[x])
+            node+=1
+        
+        return result
+        # print(patterns[class1])
+        # print("<<<<<<<<<<<<<<<")
+        # print(patterns[class2])
         # new_samples = scaler.transform(new_data)  # Scale the new samples
-        # predicted_labels = kmeans.predict(new_samples)
+        # predicted_labels = self.kmeans.predict(new_samples)
 
         
     def __modeGetter(self,npArray):
@@ -809,9 +868,74 @@ class OCRController():
         
         return np.argmax(counts)
 
+    def textboxSeekerPredictor(self, targetArea:dict, heightOfTarget:int) -> list[dict]:
+        if self.kmeans != None:
+            screen = np.array(self.sct.grab(targetArea))
+            # print(screen.shape)
+            # print(screen)
+            gray_image = cv2.cvtColor(screen, cv2.COLOR_BGR2GRAY)
+            # print(gray_image.shape)
+            gray_image = np.array(gray_image, dtype = np.int32)
+            # print(gray_image)
+            # print("-----------------------")
+
+            patterns = np.apply_along_axis(self.__modeGetter, 1, gray_image) # modes of each row
+            # print(patterns)
+            # print(patterns.shape)
+            scaled_data = np.divide(patterns,255)
+
+            scaled_data = np.reshape(scaled_data, (-1, 1))
+            # print(scaled_data)
+            scaled_data = np.insert(scaled_data, 1, 0,axis=1)
+            labels = self.kmeans.predict(scaled_data)
+            
+        class2 = np.where(labels == 1)[0]
+        result = []
+        node = 0
+        lastNode = 0
+        for x in range(class2.shape[0]):
+            if class2[x] > node:
+                if node > (lastNode + 1):
+                    tem=copy.deepcopy(targetArea)
+                    tem["top"] = lastNode + targetArea["top"]
+                    tem["height"] = node - lastNode
+                    result.append(tem)
+                    
+                tem=copy.deepcopy(targetArea)
+                tem["top"] = node + targetArea["top"]
+                tem["height"] = class2[x] - node
+                result.append(tem)
+                lastNode = copy.deepcopy(class2[x])
+                node = copy.deepcopy(class2[x])
+            node+=1
+        
+        return result
+
+
 class edit_excel():
     def __init__(self) -> None:
         self.currentPath = os.getcwd()
+
+    def OCRModelDataSaver(self, modelLabels:np.ndarray, centroids:np.ndarray, OtherInfo:np.ndarray) ->None :
+        """
+            `OtherInfo`: [clustersNumber, max_iteration]
+        """
+        arr = np.array([modelLabels, centroids, OtherInfo], dtype = object)
+        
+        np.save("textBoxesInfer.npy", arr, allow_pickle=True, fix_imports=True)
+
+    def OCRModelDataLoader(self) -> np.ndarray[np.ndarray]:
+        file_path = os.path.join(self.currentPath, "textBoxesInfer.npy")
+
+        if os.path.exists(file_path):
+            inCodeFile = np.load("textBoxesInfer.npy", allow_pickle = True)
+
+        else:
+            inCodeFile = np.array([[], [], []], dtype = object)
+
+        
+        
+        return inCodeFile
 
 if __name__ == "__main__":
     # startEvent=eventKeyboard()
@@ -842,5 +966,5 @@ if __name__ == "__main__":
     # con.smooth(1913,195,500)
     # con.mouse.release(Button.left)
     ocr=OCRController(os.getcwd())
-    text=ocr.textboxSeeker({"top": 0, "left": 0, "width": 1920, "height": 1080})
+    text=ocr.textboxSeekerTrainer({"top": 0, "left": 0, "width": 1920, "height": 1080})
     # print(text)
