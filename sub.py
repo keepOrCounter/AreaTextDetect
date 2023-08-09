@@ -829,6 +829,8 @@ class edit_excel():
         new_row = {'昵称': name, '标签': label, '加入': join, '最近退出':recently_exit,"差值":difference,"常驻认证T/F": authentication}
         df = df.append(new_row, ignore_index=True)
         df.to_excel("人员信息统计.xlsx")
+
+
     def merge_title_cell(self, excel):  # 所有完成之后，最后一步在合并单元格
         pass
 
