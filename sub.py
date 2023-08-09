@@ -1,10 +1,12 @@
 import math
 import copy
+
+import openpyxl
+import pandas as pd
 import pynput
 import screeninfo
 import time
 import tkinter
-import pytesseract
 from tkinter.font import Font
 from mss import mss
 from pynput.mouse import Controller, Button
@@ -13,6 +15,7 @@ import pyautogui
 import cv2
 from paddleocr import PaddleOCR
 import os
+import re
 
 
 class eventKeyboard():
@@ -34,91 +37,91 @@ class eventKeyboard():
         self.keyValue = -1
         self.timeIntervalStart = 0
         self.timeIntervalEnd = 0
-        
+
         self.keysIntervalStart = 0
         self.keysIntervalEnd = 0
-        
+
         self.activeFlag = -1
-        self.keyPressed = pynput.keyboard.Listener(on_press = self.pressed, on_release = self.released)
+        self.keyPressed = pynput.keyboard.Listener(on_press=self.pressed, on_release=self.released)
         self.counter = 0
         # self.shortcutThread = False
-        
+
         self.__status = 0
         self.shortcutFlag = False
         self.recordKey = []
-        self.recordedshortcut = {"Key.alt_lz": 2} # Key.alt_lz is default shortcut
+        self.recordedshortcut = {"Key.alt_lz": 2}  # Key.alt_lz is default shortcut
 
         self.keyboard_key_dict = {
-    "\x01" : ['ctrl','a'],
-    "\x02" : ['ctrl','b'],
-    "\x03" : ['ctrl','c'],
-    "\x04" : ['ctrl','d'],
-    "\x05" : ['ctrl','e'],
-    "\x06" : ['ctrl','f'],
-    "\x07" : ['ctrl','g'],
-    "\x08" : ['ctrl','h'],
-    "\t"   : ['ctrl','i'],
-    "\n"   : ['ctrl','j'],
-    "\x0b" : ['ctrl','k'],
-    "\x0c" : ['ctrl','l'],
-    "\r"   : ['ctrl','m'],
-    "\x0e" : ['ctrl','n'],
-    "\x0f" : ['ctrl','o'],
-    "\x10" : ['ctrl','p'],
-    "\x11" : ['ctrl','q'],
-    "\x12" : ['ctrl','r'],
-    "\x13" : ['ctrl','s'],
-    "\x14" : ['ctrl','t'],
-    "\x15" : ['ctrl','u'],
-    "\x16" : ['ctrl','v'],
-    "\x17" : ['ctrl','w'],
-    "\x18" : ['ctrl','x'],
-    "\x19" : ['ctrl','y'],
-    "\x1a" : ['ctrl','z'],
-    "\x1f" : ['ctrl','shift','-'],
-    '<186>'  : ['ctrl',';'],
-    "<187>"  : ['ctrl','='],
-    "<189>"  : ['ctrl','-'],
-    "<192>"  : ['ctrl','`'],
-    "<222>"  : ['ctrl',r"'"],
-    "<48>"   : ['ctrl','0'],
-    "<49>"   : ['ctrl','1'],
-    "<50>"   : ['ctrl','2'],
-    "<51>"   : ['ctrl','3'],
-    "<52>"   : ['ctrl','4'],
-    "<53>"   : ['ctrl','5'],
-    "<54>"   : ['ctrl','6'],
-    "<55>"   : ['ctrl','7'],
-    "<56>"   : ['ctrl','8'],
-    "<57>"   : ['ctrl','9'],
-    "~"    : ['shift', '`'],
-    "!"    : ['shift', '1'],
-    "@"    : ['shift', '2'],
-    "#"    : ['shift', '3'],
-    "$"    : ['shift', '4'],
-    "%"    : ['shift', '5'],
-    "^"    : ['shift', '6'],
-    "*"    : ['shift', '7'],
-    "("    : ['shift', '8'],
-    ")"    : ['shift', '9'],
-    "_"    : ['shift', '-'],
-    "+"    : ['shift', '='],
-    ":"    : ['shift', ';'],
-    "\'"   : ['shift', "'"],
-    "<"    : ['shift', ","],
-    "{"    : ['shift', "["],
-    "}"    : ['shift', "]"],
-    "|"    : ['shift', "\\"],
-    "?"    : ['shift', "/"],
-}
+            "\x01": ['ctrl', 'a'],
+            "\x02": ['ctrl', 'b'],
+            "\x03": ['ctrl', 'c'],
+            "\x04": ['ctrl', 'd'],
+            "\x05": ['ctrl', 'e'],
+            "\x06": ['ctrl', 'f'],
+            "\x07": ['ctrl', 'g'],
+            "\x08": ['ctrl', 'h'],
+            "\t": ['ctrl', 'i'],
+            "\n": ['ctrl', 'j'],
+            "\x0b": ['ctrl', 'k'],
+            "\x0c": ['ctrl', 'l'],
+            "\r": ['ctrl', 'm'],
+            "\x0e": ['ctrl', 'n'],
+            "\x0f": ['ctrl', 'o'],
+            "\x10": ['ctrl', 'p'],
+            "\x11": ['ctrl', 'q'],
+            "\x12": ['ctrl', 'r'],
+            "\x13": ['ctrl', 's'],
+            "\x14": ['ctrl', 't'],
+            "\x15": ['ctrl', 'u'],
+            "\x16": ['ctrl', 'v'],
+            "\x17": ['ctrl', 'w'],
+            "\x18": ['ctrl', 'x'],
+            "\x19": ['ctrl', 'y'],
+            "\x1a": ['ctrl', 'z'],
+            "\x1f": ['ctrl', 'shift', '-'],
+            '<186>': ['ctrl', ';'],
+            "<187>": ['ctrl', '='],
+            "<189>": ['ctrl', '-'],
+            "<192>": ['ctrl', '`'],
+            "<222>": ['ctrl', r"'"],
+            "<48>": ['ctrl', '0'],
+            "<49>": ['ctrl', '1'],
+            "<50>": ['ctrl', '2'],
+            "<51>": ['ctrl', '3'],
+            "<52>": ['ctrl', '4'],
+            "<53>": ['ctrl', '5'],
+            "<54>": ['ctrl', '6'],
+            "<55>": ['ctrl', '7'],
+            "<56>": ['ctrl', '8'],
+            "<57>": ['ctrl', '9'],
+            "~": ['shift', '`'],
+            "!": ['shift', '1'],
+            "@": ['shift', '2'],
+            "#": ['shift', '3'],
+            "$": ['shift', '4'],
+            "%": ['shift', '5'],
+            "^": ['shift', '6'],
+            "*": ['shift', '7'],
+            "(": ['shift', '8'],
+            ")": ['shift', '9'],
+            "_": ['shift', '-'],
+            "+": ['shift', '='],
+            ":": ['shift', ';'],
+            "\'": ['shift', "'"],
+            "<": ['shift', ","],
+            "{": ['shift', "["],
+            "}": ['shift', "]"],
+            "|": ['shift', "\\"],
+            "?": ['shift', "/"],
+        }
 
-    def pressed(self,key):
+    def pressed(self, key):
         try:
             self.recordKey.append("{}".format(key.char))
         except:
             self.recordKey.append("{}".format(key))
         # print(self.recordKey)
-        
+
         if len(self.recordKey) == 2:
             # print("recordKey",self.recordKey[0])
             if self.recordKey[0] == "Key.ctrl_l" or self.recordKey[0] == "Key.ctrl_r":
@@ -138,33 +141,33 @@ class eventKeyboard():
 
             if self.shortcutFlag == False:
                 # print("call target functions, not finished yet.")
-                    # else:
-                    #     # print(type(self.recordKey[0]))
-                    #     print("The recordKey is " + self.recordKey[0] + " + " + self.recordKey[1])
-                    #     print("Record the shortcut key.")
-                    #     print("sssssssssssssssssssssss")
-                    tem = self.recordKey[0] + self.recordKey[1]
-                    if tem in self.recordedshortcut.keys():
-                        self.__status = self.recordedshortcut[tem] # Change status if user triggered a shortcut
-        
+                # else:
+                #     # print(type(self.recordKey[0]))
+                #     print("The recordKey is " + self.recordKey[0] + " + " + self.recordKey[1])
+                #     print("Record the shortcut key.")
+                #     print("sssssssssssssssssssssss")
+                tem = self.recordKey[0] + self.recordKey[1]
+                if tem in self.recordedshortcut.keys():
+                    self.__status = self.recordedshortcut[tem]  # Change status if user triggered a shortcut
+
         if time.time() - self.timeIntervalStart > 10.0:
-            if self.activeFlag == -1: # check if main thread is active, if not, kill sub thread
+            if self.activeFlag == -1:  # check if main thread is active, if not, kill sub thread
                 self.__status = -1
                 return False
             else:
                 self.activeFlag = -1
                 self.timeIntervalStart = time.time()
 
-    def released(self,key):
+    def released(self, key):
         try:
             tem = str(key.char)
         except:
             tem = str(key)
-            
+
         if tem in self.keyboard_key_dict.keys():
-            tem=self.keyboard_key_dict[tem][1]
-            
-        if self.shortcutFlag and len(self.recordKey) == 2: # record shortcut
+            tem = self.keyboard_key_dict[tem][1]
+
+        if self.shortcutFlag and len(self.recordKey) == 2:  # record shortcut
             if len(list(self.recordedshortcut.keys())) == 0:
                 self.recordedshortcut[self.recordKey[0] + self.recordKey[1]] = 2
             else:
@@ -173,15 +176,15 @@ class eventKeyboard():
                         self.recordedshortcut[list(self.recordedshortcut.keys())[-1]] + 1
             # print(self.recordedshortcut)
             self.shortcutFlag = False
-        
+
         # print("Released!!!",self.recordKey)
         # try:
         #     self.recordKey.remove("{}".format(key.char))
         # except:
         self.recordKey.remove("{}".format(tem))
-        
+
         if time.time() - self.timeIntervalStart > 10.0:
-            if self.activeFlag == -1: # check if main thread is active, if not, kill sub thread
+            if self.activeFlag == -1:  # check if main thread is active, if not, kill sub thread
                 self.__status = -1
                 return False
             else:
@@ -190,12 +193,11 @@ class eventKeyboard():
         # if key == pynput.keyboard.Key.esc: 
         #     return False
 
-        
     def StartListener(self) -> None:
 
         if self.__status == -1:
             self.terminate()
-            self.keyPressed=pynput.keyboard.Listener(on_press=self.pressed, on_release=self.released)
+            self.keyPressed = pynput.keyboard.Listener(on_press=self.pressed, on_release=self.released)
 
         self.__status = 1
         self.keyPressed.start()
@@ -221,7 +223,7 @@ class eventKeyboard():
         result = self.__status
         if self.__status > 1:
             self.__status = 1
-            
+
         return result
 
 
@@ -246,7 +248,7 @@ class eventMouse():
 
         self.activeFlag1 = -1
         self.activeFlag2 = -1
-        
+
         self.__status1 = 0
         self.__status2 = 0
 
@@ -312,12 +314,12 @@ class eventMouse():
         # return True
 
     def StartListener(self) -> None:
-        
+
         if self.__status1 == -1 or self.__status2 == -1:
             self.terminate()
             self.mouseClicked = pynput.mouse.Listener(on_click=self.clicked)
             self.mouseMove = pynput.mouse.Listener(on_move=self.moving)
-        
+
         self.timeIntervalStart = time.time()
         self.mouseClicked.start()
 
@@ -342,7 +344,7 @@ class eventMouse():
     def activeFlagSet(self, newFlag) -> None:
         end = time.time()
         dif = end - self.begin
-        
+
         if self.__status1 == -1 or self.__status2 == -1:
             self.StartListener()
         elif dif >= 10:
@@ -402,12 +404,13 @@ class windowsUI():
         self.__subWindows = None  # store windows created by event function Start()
 
         self.__rec = []  # store rectangle in canvas
-        self.recoredArea = [] # store recorded screen shot area
+        self.recoredArea = []  # store recorded screen shot area
         self.x = -10  # store mouse click coordinations
         self.y = -10
         
         dbManagement = edit_excel()
         self.ocr = OCRController(dbManagement.currentPath)
+
 
         self.xRight = -1  # store mouse move coordinations
         self.yRight = -1
@@ -697,7 +700,6 @@ class windowsUI():
         # self.__canvas.coords(self.__rec[index], positionX, positionY, rightX, rightY)
         # print("coorMoving:", self.__canvas.coords(self.__rec[-1]))
 
-
     def transform(self, canvas_rectangle):  # 将画布上的相对坐标转换成屏幕的绝对坐标
         coords = self.__canvas.coords(canvas_rectangle)  # 得到矩阵的坐标
         tem_left_x = coords[0]
@@ -751,6 +753,7 @@ class OCRController():
                 det_model_dir = self.currentPath + "\\inference\\det\\") 
         
     def areTextTransfer(self, targetArea:dict) -> list[str]:
+
         screen = np.array(self.sct.grab(targetArea))
         image_rgb = cv2.cvtColor(screen, cv2.COLOR_BGR2RGB)
         
@@ -768,9 +771,120 @@ class OCRController():
         # text = pytesseract.image_to_string(threshold_image, config=config)
         return txts
 
+
 class edit_excel():
     def __init__(self) -> None:
         self.currentPath = os.getcwd()
+        self.title_list = []
+        self.excel_name = ""
+
+    def edit_excel(self, page_title, list_Title, list_Data, mod=0):
+        try:
+            self.create_new_folder()
+            self.create_new_excel(mod)
+            self.create_and_import_sheet(page_title, list_Title, list_Data)
+        except Exception as e:
+            self.open_and_close_txt(e)
+
+    # 打开日志并且填入错误信息
+    def open_and_close_txt(self, e):
+        localDate = re.sub(r"[ :]+", "-", str(time.asctime(time.localtime(time.time()))))
+        f3 = open("log.txt", "a")
+        f3.write(localDate + ": " + str(e) + "\n")
+        f3.close()
+
+    # 创建文件夹（数据库）
+    def create_new_folder(self):
+        try:
+            if not os.path.isdir(self.currentPath + "\\data"):
+                os.makedirs(self.currentPath + "\\data")
+                self.currentPath = self.currentPath + "\\data"
+            else:
+                self.currentPath = self.currentPath + "\\data"
+        except Exception as e:
+            self.open_and_close_txt(e)
+            self.currentPath = self.currentPath + "\\data"
+
+    # name是新excel的名字，请包含完整信息，比如“xxxx.xlsx”，mod默认为0
+    def create_new_excel(self, mod=0):
+        try:
+            if mod == 0:
+                current_timestamp = time.time()
+                current_time = time.localtime(current_timestamp)
+                # 提取当前月份
+                current_month = current_time.tm_mon
+                name = str(current_month) + "月_部落战.xlsx"
+                file_path = os.path.join(self.currentPath, name)
+                if os.path.exists(file_path):  # 判断该excel是否存在于这个文件夹中
+                    self.excel_name = name
+                    print("已经存在")
+                else:
+                    df = pd.DataFrame()
+                    df.to_excel(file_path, index=False)
+                    self.excel_name = name
+            elif mod == 1:  # 这是成员信息，暂时没用到
+                pass
+        except Exception as e:
+            self.open_and_close_txt(e)
+
+    def create_and_import_sheet(self, page_title, list_Title, list_Data):
+        try:
+            file_path = os.path.join(self.currentPath, self.excel_name)
+            # print(self.currentPath)
+            print("excel name is: " + self.excel_name)
+
+            start_column = 0
+            start_column_letter = ""
+            actual_page_title_row = 1  # page 的名字的行数
+            actual_list_title_row = 2  # 数据的名字的行数
+
+            wb = openpyxl.load_workbook(file_path)
+            ws = wb.active
+            if page_title[0] not in self.title_list:
+                self.title_list.append(page_title[0])
+                page_number = self.title_list.index(page_title[0])
+                start_column = 7 * page_number + 1  # 开始列名的数字
+                for i in range(0, len(list_Title)):
+                    ws[openpyxl.utils.get_column_letter(start_column + i) + str(actual_page_title_row)] = page_title[0]
+                    ws[openpyxl.utils.get_column_letter(start_column + i) + str(actual_list_title_row)] = list_Title[i]
+            else:
+                page_number = self.title_list.index((page_title[0]))
+                start_column = 7 * page_number
+
+            count = 1
+            #  判断一行的第一个cell是否为空，如果不是则count加一
+            while ws[
+                openpyxl.utils.get_column_letter(start_column) + str(actual_list_title_row + count)].value is not None:
+
+                # print(ws[openpyxl.utils.get_column_letter(start_column) + str(actual_list_title_row + count)].value)
+                if ws[openpyxl.utils.get_column_letter(start_column) + str(actual_list_title_row + count)].value == \
+                        list_Data[0]:
+                    # print(count)
+                    ws.insert_rows(actual_list_title_row + count)
+
+                    break
+                count = count + 1
+
+            #  从这一行的第一个数值开始填写
+            for i in range(0, len(list_Data)):
+                ws[openpyxl.utils.get_column_letter(start_column + i) + str(actual_list_title_row + count)] \
+                    = list_Data[i]
+
+            title_column = 0
+            while ws[openpyxl.utils.get_column_letter(1 + title_column * 7) + str(1)].value is not None:
+                start_row = 1
+                end_row = 1
+                start_column = 1
+                end_column = 7 + title_column * 7
+                ws.merge_cells(start_row=start_row, end_row=end_row, start_column=start_column, end_column=end_column)
+                title_column += 1
+            wb.save(file_path)
+
+        except Exception as e:
+            self.open_and_close_txt(e)
+
+    def merge_title_cell(self, excel):  # 所有完成之后，最后一步在合并单元格
+        pass
 
 if __name__ == "__main__":
     # startEvent=eventKeyboard()
@@ -797,9 +911,4 @@ if __name__ == "__main__":
     # keyTest.terminate()
     con=mouse_control()
     # con.move_and_press_mouse(636,21)
-    con.mouse.press(Button.left)
-    con.smooth(1913,195,500)
-    con.mouse.release(Button.left)
-    # ocr=OCRController()
-    # text=ocr.areTextTransfer({"top": 398, "left": 482, "width": 50, "height": 50},"chi_sim+eng",r'--oem 3 --psm 6 -c tessedit_char_whitelist=#♡※✰')
-    # print(text)
+
