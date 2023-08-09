@@ -715,9 +715,14 @@ class edit_excel():
 
     def edit_excel(self, page_title, list_Title, list_Data, mod=0):
         try:
-            self.create_new_folder()
-            self.create_new_excel(mod)
-            self.create_and_import_sheet(page_title, list_Title, list_Data)
+            if mod == 0:
+                self.create_new_folder()
+                self.create_new_excel(mod)
+                self.create_and_import_sheet(page_title, list_Title, list_Data)
+            elif mod ==1:
+                self.create_new_folder()
+                self.import_member_information()
+
         except Exception as e:
             self.open_and_close_txt(e)
 
@@ -758,6 +763,7 @@ class edit_excel():
                     df.to_excel(file_path, index=False)
                     self.excel_name = name
             elif mod == 1:  # 这是成员信息，暂时没用到
+
                 pass
         except Exception as e:
             self.open_and_close_txt(e)
@@ -818,6 +824,11 @@ class edit_excel():
         except Exception as e:
             self.open_and_close_txt(e)
 
+    def import_member_information(self, name, label, join, recently_exit, difference,authentication):
+        df = pd.read_excel(self.currentPath, "人员信息统计.xlsx")
+        new_row = {'昵称': name, '标签': label, '加入': join, '最近退出':recently_exit,"差值":difference,"常驻认证T/F": authentication}
+        df = df.append(new_row, ignore_index=True)
+        df.to_excel("人员信息统计.xlsx")
     def merge_title_cell(self, excel):  # 所有完成之后，最后一步在合并单元格
         pass
 
