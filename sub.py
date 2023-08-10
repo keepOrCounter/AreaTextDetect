@@ -406,8 +406,8 @@ class windowsUI():
         self.x = -10  # store mouse click coordinations
         self.y = -10
         
-        dbManagement = edit_excel()
-        self.ocr = OCRController(dbManagement.currentPath)
+        self.dbManagement = edit_excel()
+        self.ocr = OCRController(self.dbManagement.currentPath, self.dbManagement.OCRModelDataLoader())
 
         self.xRight = -1  # store mouse move coordinations
         self.yRight = -1
@@ -598,7 +598,8 @@ class windowsUI():
         if len(self.recoredArea)==1: # test
             tem = self.recoredArea.pop()
             # text=self.ocr.areTextTransfer(tem)
-            textBoxes = self.ocr.textboxSeekerTrainer(tem)
+            # textBoxes = self.ocr.textboxSeekerTrainer(tem, 50)
+            textBoxes = self.ocr.textboxSeekerPredictor(tem, 50, 0)
             self.statusID = 3000
             self.screenShotCreation()
             counter = 0
@@ -618,7 +619,8 @@ class windowsUI():
                 if counter % 3 == 0:
                     counter = 0
             print(self.recoredArea)
-            
+            self.dbManagement.OCRModelDataSaver(self.ocr.centroids,\
+                self.ocr.data, self.ocr.modelID, self.ocr.relativeDistance)
             
     def eventAction(self) -> None:
         
@@ -775,7 +777,7 @@ class mouse_control():
 
 
 class OCRController():
-    def __init__(self, path) -> None:
+    def __init__(self, path, incodeFile) -> None:
         # pytesseract.pytesseract.tesseract_cmd = r""
         self.sct = mss()
         self.currentPath = path
@@ -784,10 +786,15 @@ class OCRController():
                 cls_model_dir = self.currentPath + "\\inference\\cls\\",
                 det_model_dir = self.currentPath + "\\inference\\det\\") 
 
-        self.modelLabels = []
-        self.centroids = []
+        print(incodeFile)
         self.kmeans = None
-
+        self.centroids, self.data ,self.modelID, self.relativeDistance = incodeFile
+        self.centroids, self.data ,self.modelID, self.relativeDistance = np.array(self.centroids), \
+            np.array(self.data), np.array(self.modelID), np.array(self.relativeDistance)
+        self.temResult = []
+        self.modelLabels = []
+        self.relativeDistance = list(self.relativeDistance)
+        print(self.modelLabels, self.centroids, self.data ,self.modelID, self.relativeDistance)
         
     def areTextTransfer(self, targetArea:dict) -> list[str]:
         screen = np.array(self.sct.grab(targetArea))
@@ -817,25 +824,42 @@ class OCRController():
         # print(gray_image)
         # print("-----------------------")
         
-        patterns = np.apply_along_axis(self.__modeGetter, 1, gray_image) # modes of each row
-        # print(patterns)
-        # print(patterns.shape)
-        scaled_data = np.divide(patterns,255)
+        # patterns = np.apply_along_axis(self.__modeGetter, 1, gray_image) # modes of each row
+        # # print(patterns)
+        # # print(patterns.shape)
+        # scaled_data = np.divide(patterns,255)
         
-        scaled_data = np.reshape(scaled_data, (-1, 1))
-        # print(scaled_data)
-        scaled_data = np.insert(scaled_data, 1, 0,axis=1)
-        # print(scaled_data)
-        # print(">>>>>>>>>>>>>>>>>>>>>>")
+        # scaled_data = np.reshape(scaled_data, (-1, 1))
+        # # print(scaled_data)
+        # scaled_data = np.insert(scaled_data, 1, 0,axis=1)
+        # # print(scaled_data)
+        # # print(">>>>>>>>>>>>>>>>>>>>>>")
         
-        self.kmeans = KMeans(n_clusters=2, random_state=0, max_iter=500)
-        self.kmeans.fit(scaled_data)
-        self.modelLabels = self.kmeans.labels_
-        self.centroids = self.kmeans.cluster_centers_
-        # print(self.centroids)
-        # print(self.modelLabels)
-        # class1 = np.where(self.modelLabels == 0)[0]
-        class2 = np.where(self.modelLabels == 1)[0]
+        # self.data = list(self.data)
+        # self.data.append(scaled_data)
+        # self.data = np.array(self.data, dtype = object)
+        
+        # self.kmeans = KMeans(n_clusters=2, random_state=0, max_iter=500)
+        # self.kmeans.fit(scaled_data)
+        
+        # self.modelLabels = list(self.modelLabels)
+        # self.modelLabels.append(self.kmeans.labels_)
+        # self.modelLabels = np.array(self.modelLabels, dtype = object)
+
+        # self.centroids = list(self.centroids)
+        # self.centroids.append(self.kmeans.cluster_centers_)
+        # self.centroids = np.array(self.centroids, dtype = object)
+        # # print(self.centroids)
+        # # print(self.modelLabels)
+        # # class1 = np.where(self.modelLabels == 0)[0]
+        # if self.modelID.shape[0] == 0:
+        #     self.modelID = np.append(self.modelID, 0)
+        # else:
+        #     self.modelID = np.append(self.modelID, copy.deepcopy(self.modelID[-1]) + 1)
+        
+        self.KMEANSTrainer(gray_image, 2, 0, 500)
+            
+        class2 = np.where(self.modelLabels[-1] == 1)[0]
         result = []
         node = 0
         lastNode = 0
@@ -845,16 +869,22 @@ class OCRController():
                     tem=copy.deepcopy(targetArea)
                     tem["top"] = lastNode + targetArea["top"]
                     tem["height"] = node - lastNode
-                    result.append(tem)
+                    if heightOfTarget <= tem["height"]:
+                        result.append(tem)
+                    self.temResult.append(tem)
                     
                 tem=copy.deepcopy(targetArea)
                 tem["top"] = node + targetArea["top"]
                 tem["height"] = class2[x] - node
-                result.append(tem)
+                if heightOfTarget <= tem["height"]:
+                    result.append(tem)
+                self.temResult.append(tem)
+                
                 lastNode = copy.deepcopy(class2[x])
                 node = copy.deepcopy(class2[x])
             node+=1
-        
+        self.temResult = copy.deepcopy(result)
+
         return result
         # print(patterns[class1])
         # print("<<<<<<<<<<<<<<<")
@@ -868,29 +898,32 @@ class OCRController():
         
         return np.argmax(counts)
 
-    def textboxSeekerPredictor(self, targetArea:dict, heightOfTarget:int) -> list[dict]:
-        if self.kmeans != None:
-            screen = np.array(self.sct.grab(targetArea))
-            # print(screen.shape)
-            # print(screen)
-            gray_image = cv2.cvtColor(screen, cv2.COLOR_BGR2GRAY)
-            # print(gray_image.shape)
-            gray_image = np.array(gray_image, dtype = np.int32)
-            # print(gray_image)
-            # print("-----------------------")
-
-            patterns = np.apply_along_axis(self.__modeGetter, 1, gray_image) # modes of each row
-            # print(patterns)
-            # print(patterns.shape)
-            scaled_data = np.divide(patterns,255)
-
-            scaled_data = np.reshape(scaled_data, (-1, 1))
-            # print(scaled_data)
-            scaled_data = np.insert(scaled_data, 1, 0,axis=1)
-            labels = self.kmeans.predict(scaled_data)
+    def textboxSeekerPredictor(self, targetArea:dict, heightOfTarget:int, modelID:int) -> list[dict]:
+        screen = np.array(self.sct.grab(targetArea))
+        # print(screen.shape)
+        # print(screen)
+        gray_image = cv2.cvtColor(screen, cv2.COLOR_BGR2GRAY)
+        # print(gray_image.shape)
+        gray_image = np.array(gray_image, dtype = np.int32)
+        # print(gray_image)
+        # print("-----------------------")
+        # patterns = np.apply_along_axis(self.__modeGetter, 1, gray_image) # modes of each row
+        # # print(patterns)
+        # # print(patterns.shape)
+        # scaled_data = np.divide(patterns,255)
+        # scaled_data = np.reshape(scaled_data, (-1, 1))
+        # # print(scaled_data)
+        # scaled_data = np.insert(scaled_data, 1, 0,axis=1)
+        
+        # self.kmeans = KMeans(n_clusters=2, max_iter=500, init = self.centroids[modelID], n_init = 1)
+        # self.kmeans.fit(self.data[modelID])
+        # labels = self.kmeans.predict(scaled_data)
+        labels = self.KMEANSPredictor(gray_image, modelID, 2, 500, 1)
+        
             
         class2 = np.where(labels == 1)[0]
         result = []
+        self.temResult.clear()
         node = 0
         lastNode = 0
         for x in range(class2.shape[0]):
@@ -899,42 +932,208 @@ class OCRController():
                     tem=copy.deepcopy(targetArea)
                     tem["top"] = lastNode + targetArea["top"]
                     tem["height"] = node - lastNode
-                    result.append(tem)
+
+                    if heightOfTarget <= tem["height"]:
+                        result.append(tem)
+                    self.temResult.append(tem)
                     
                 tem=copy.deepcopy(targetArea)
                 tem["top"] = node + targetArea["top"]
                 tem["height"] = class2[x] - node
-                result.append(tem)
+                if heightOfTarget <= tem["height"]:
+                    result.append(tem)
+                self.temResult.append(tem)
+
                 lastNode = copy.deepcopy(class2[x])
                 node = copy.deepcopy(class2[x])
             node+=1
-        
+        # self.temResult = copy.deepcopy(result)
+
+
         return result
+    
+    def unexpectedResult(self, targetArea:dict, heightOfTarget:int):
+        lastTextbox = None
+        for x in range(len(self.temResult)):
+            pass
+            
+    def textLocationTrainer(self, textArea:list[dict], screenArea:dict):
+        screen = np.array(self.sct.grab(screenArea))
+        # print(screen.shape)
+        # print(screen)
+        gray_image = cv2.cvtColor(screen, cv2.COLOR_BGR2GRAY)
+        # print(gray_image.shape)
+        gray_image = np.array(gray_image, dtype = np.int32)
+        
+        boundaryPixel = np.array([], dtype = np.int32)
+        for x in range(len(textArea)):
+            boundaryPixel = np.append(boundaryPixel, gray_image[textArea[x]["top"], textArea[x]["left"] : \
+                textArea[x]["left"] + textArea[x]["width"]])
+            
+            boundaryPixel = np.append(boundaryPixel, gray_image[textArea[x]["top"] + textArea[x]["height"], \
+                textArea[x]["left"] : textArea[x]["left"] + textArea[x]["width"]])
+        
+        self.KMEANSTrainer(boundaryPixel, 3, 1, 600, False)
+        
+    
+    def textLocationPredictor(self, textArea:list[dict], screenArea:dict, modelID:int) -> bool:
+        screen = np.array(self.sct.grab(screenArea))
+        # print(screen.shape)
+        # print(screen)
+        gray_image = cv2.cvtColor(screen, cv2.COLOR_BGR2GRAY)
+        # print(gray_image.shape)
+        gray_image = np.array(gray_image, dtype = np.int32)
+        
+        
+        boundaryPixel = np.array([], dtype = np.int32)
+        for x in range(len(textArea)):
+            boundaryPixel = gray_image[textArea[x]["top"], textArea[x]["left"] : \
+                textArea[x]["left"] + textArea[x]["width"]].copy()
+            
+            labels = self.KMEANSPredictor(boundaryPixel, modelID, 3, 600, 1, False, x == 0)
+            if not np.where(labels == labels[0])[0].shape[0] == labels.shape[0]:
+                return False
+            
+            
+            boundaryPixel = gray_image[textArea[x]["top"] + textArea[x]["height"], \
+                textArea[x]["left"] : textArea[x]["left"] + textArea[x]["width"]].copy()
+            
+            labels = self.KMEANSPredictor(boundaryPixel, modelID, 3, 600, 1, False, False)
+            if not np.where(labels == labels[0])[0].shape[0] == labels.shape[0]:
+                return False
+
+        return True
+        
+        
+    def textSeeker(self, textArea:list[dict], textboxArea:dict, screenArea:dict, modelID:int, \
+        mode = "train", textHeight = -1):
+        if mode == "train":
+            pass
+        else:
+            result = []
+            satisfyFlag = False
+            if textHeight == -1:
+                upper = 90000
+                lower = 0
+            for y in range(len(self.relativeDistance[modelID])):
+                counter = 0
+                for x in range(len(textArea)):
+                    textArea[x]["top"] = self.relativeDistance[modelID][y][x] + textboxArea["top"]
+                    if textHeight == -1:
+                        upper = min(textArea[x]["top"], upper)
+                        lower = max(textArea[x]["top"] + textArea[x]["height"], lower)
+                    tem = self.areTextTransfer(textArea[x])
+                    if len(tem) == 0:
+                        counter += 1
+                        result.append(tem)
+                    
+                if self.textLocationPredictor([textArea[x]], screenArea, modelID):
+                    satisfyFlag = True
+                    break
+                if textHeight == -1:
+                    textHeight = lower - upper
+                
+            if satisfyFlag:
+                for x in textArea:
+                    pass
+            else:
+                self.textSeeker(textArea, textboxArea, screenArea, modelID, "train", textHeight)
+
+        
+    def KMEANSTrainer(self, gray_image:np.ndarray, n_clusters = 2,random_state = 0, max_iter = 500, mode = True):
+        
+        if mode:
+            patterns = np.apply_along_axis(self.__modeGetter, 1, gray_image) # modes of each row
+        else:
+            patterns = gray_image.copy()
+        # print(patterns)
+        # print(patterns.shape)
+        scaled_data = np.divide(patterns,255)
+        
+        scaled_data = np.reshape(scaled_data, (-1, 1))
+        # print(scaled_data)
+        scaled_data = np.insert(scaled_data, 1, 0,axis=1)
+        # print(scaled_data)
+        # print(">>>>>>>>>>>>>>>>>>>>>>")
+        
+        self.data = list(self.data)
+        self.data.append(scaled_data)
+        print(self.data)
+        self.data = np.array(self.data, dtype = object)
+        print(">>>.....>>>>>>>")
+        self.kmeans = KMeans(n_clusters = n_clusters, random_state = random_state, max_iter = max_iter)
+        self.kmeans.fit(scaled_data)
+        
+        self.modelLabels = list(self.modelLabels)
+        self.modelLabels.append(self.kmeans.labels_)
+        print(self.modelLabels)
+        self.modelLabels = np.array(self.modelLabels, dtype = object)
+        
+        print(">>>.....>>>>>>>")
+        self.relativeDistance.append([])
+
+        self.centroids = list(self.centroids)
+        self.centroids.append(self.kmeans.cluster_centers_)
+        print(self.centroids)
+        self.centroids = np.array(self.centroids, dtype = object)
+        # print(self.centroids)
+        # print(self.modelLabels)
+        # class1 = np.where(self.modelLabels == 0)[0]
+        if self.modelID.shape[0] == 0:
+            self.modelID = np.append(self.modelID, 0)
+        else:
+            self.modelID = np.append(self.modelID, copy.deepcopy(self.modelID[-1]) + 1)
+            
+    def KMEANSPredictor(self, gray_image:np.ndarray, modelID:int, n_clusters = 2, max_iter = 500, n_init = 1, \
+        mode = True, newModel = True) -> np.ndarray:
+        
+        if mode:
+            patterns = np.apply_along_axis(self.__modeGetter, 1, gray_image) # modes of each row
+        else:
+            patterns = gray_image.copy()
+        # print(patterns)
+        # print(patterns.shape)
+        scaled_data = np.divide(patterns,255)
+        scaled_data = np.reshape(scaled_data, (-1, 1))
+        # print(scaled_data)
+        scaled_data = np.insert(scaled_data, 1, 0,axis=1)
+        
+        if newModel:
+            self.kmeans = KMeans(n_clusters = n_clusters, max_iter = max_iter, init = self.centroids[modelID], \
+                n_init = n_init)
+            self.kmeans.fit(self.data[modelID])
+        labels = self.kmeans.predict(scaled_data)
+        
+        return labels
 
 
 class edit_excel():
     def __init__(self) -> None:
         self.currentPath = os.getcwd()
 
-    def OCRModelDataSaver(self, modelLabels:np.ndarray, centroids:np.ndarray, OtherInfo:np.ndarray) ->None :
+    def OCRModelDataSaver(self, centroids:np.ndarray, data:np.ndarray, \
+        modelID:np.ndarray, relativeDistance:list) ->None :
         """
             `OtherInfo`: [clustersNumber, max_iteration]
         """
-        arr = np.array([modelLabels, centroids, OtherInfo], dtype = object)
+        print(centroids, data, modelID, relativeDistance)#, centroids, data, modelID, relativeDistance
+        arr = np.array([list(centroids), list(data), list(modelID), list(relativeDistance)], dtype=object)
         
         np.save("textBoxesInfer.npy", arr, allow_pickle=True, fix_imports=True)
+        
+        print("saved:", arr)
 
-    def OCRModelDataLoader(self) -> np.ndarray[np.ndarray]:
+    def OCRModelDataLoader(self) -> np.ndarray:
         file_path = os.path.join(self.currentPath, "textBoxesInfer.npy")
 
         if os.path.exists(file_path):
             inCodeFile = np.load("textBoxesInfer.npy", allow_pickle = True)
 
         else:
-            inCodeFile = np.array([[], [], []], dtype = object)
+            inCodeFile = np.array([[], [], [], []], dtype = object)
 
         
-        
+        print("loaded:", inCodeFile)
         return inCodeFile
 
 if __name__ == "__main__":
