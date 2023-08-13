@@ -13,6 +13,8 @@ import cv2
 from paddleocr import PaddleOCR
 import os
 from sklearn.cluster import KMeans
+from collections.abc import Iterable
+from tkinter.messagebox import *
 
 
 class eventKeyboard():
@@ -113,6 +115,7 @@ class eventKeyboard():
 }
 
     def pressed(self,key):
+        self.keyPressReset = time.time()
         try:
             self.recordKey.append("{}".format(key.char))
         except:
@@ -156,6 +159,7 @@ class eventKeyboard():
                 self.timeIntervalStart = time.time()
 
     def released(self,key):
+        self.keyPressReset = time.time()
         try:
             tem = str(key.char)
         except:
@@ -195,12 +199,13 @@ class eventKeyboard():
 
         if self.__status == -1:
             self.terminate()
-            self.keyPressed=pynput.keyboard.Listener(on_press=self.pressed, on_release=self.released)
+            self.keyPressed = pynput.keyboard.Listener(on_press=self.pressed, on_release=self.released)
 
         self.__status = 1
         self.keyPressed.start()
         self.timeIntervalStart = time.time()
         self.begin = time.time() - 5
+        self.keyPressReset = time.time()
 
     def terminate(self) -> None:
         self.keyPressed.stop()
@@ -218,6 +223,10 @@ class eventKeyboard():
             self.begin = time.time()
 
     def statusGet(self) -> int:
+        if time.time() - self.keyPressReset > 1.0:
+            self.__status = 1
+            
+            return 1
         result = self.__status
         if self.__status > 1:
             self.__status = 1
@@ -282,7 +291,8 @@ class eventMouse():
             self.activeFlag2 = -1
 
     def clicked(self, x, y, button, pressed):
-
+        self.mouseClickReset = time.time()
+        
         if pressed and button.name == "left":
             self.DetectedMouseXPos = x
             self.DetectedMouseYPos = y
@@ -325,12 +335,22 @@ class eventMouse():
         self.mouseMove.start()
 
         self.begin = time.time() - 5
+        self.mouseClickReset = time.time()
 
     def terminate(self) -> None:
         self.mouseClicked.stop()
         self.mouseMove.stop()
 
     def mouseGet(self, side) -> int:
+        if time.time() - self.mouseClickReset > 1.0:
+            self.DetectedMouseXPos = -1
+            self.DetectedMouseYPos = -1
+
+            self.DetectedRightMouseXPos = -1
+            self.DetectedRightMouseYPos = -1
+            
+            return -1, -1
+        
         if side == "left":
             return self.DetectedMouseXPos, self.DetectedMouseYPos
         elif side == "right":
@@ -380,17 +400,18 @@ class windowsUI():
             "1100": record user behaviour
             "1103": Start up screen shot
             "2000": Screen shot mode
-            "1010': behaviour recording panel
-            
+            "1010": behaviour recording panel
+            "3000": show result
+            "3010": show message box and wait for user to choose
     """
 
     def __init__(self, override=False, alpha=0.8, bgColor="black", screenShot=-1, \
                  width=-1, height=-1, positionX=0, positionY=0, listener: eventMouse = None) -> None:
         # self.__timeList=[time.time(),0]
-        self.test = True # enable test code
-        self.testNum = 3
+        self.test = False # enable test code
+        self.testNum = 0
         
-        self.listener = listener
+        self.listener = eventMouse()
         self.keyBoardInterrupt = eventKeyboard()
         self.screenShot = screenShot
         self.screen = screeninfo.get_monitors()[0]
@@ -405,12 +426,14 @@ class windowsUI():
 
         self.statusID = 1000  # globel status flag
         self.__subWindows = None  # store windows created by event function Start()
+        self.messageBox = None
 
         self.__rec = []  # store rectangle in canvas
         self.recoredArea = [] # store recorded screen shot area
         self.textBoxes = [] # store recognized text boxes
         self.textAreUpperBound = self.screen.height
         self.textAreLowerBound = 0
+        
         
         self.x = -10  # store mouse click coordinations
         self.y = -10
@@ -434,6 +457,10 @@ class windowsUI():
         
         self.positionX = positionX
         self.positionY = positionY
+        
+        IOController = mouse_control()
+        self.userInteraction = UserBehaviourController(IOController, self.listener, self.ocr,\
+            self.dbManagement)
 
         if self.screenShot == 1:
             self.__num = 6
@@ -476,25 +503,16 @@ class windowsUI():
         self.__root.mainloop()
 
     def layOutController(self, mode="root", view=0, lastmode = None) -> None:
+        counter = 0
+        buttonNum = len(self.mainPanelButtons[view].keys())
         if mode == "root":
-            buttonNum = len(self.mainPanelButtons[view].keys())
-            counter = 0
-            # for x in self.mainPanelButtons[view].keys():
-            #     counter += 1
-            #     tem = self.__lambdaCreater(self.mainPanelButtons[view][x][0])
-            #     print(self.mainPanelButtons[view][x][0])
-            #     self.currentButton.append(tkinter.Button(self.__root, text=x, command=tem))
-            #     font = Font(font=self.currentButton[-1]["font"])  # get font information
-            #     lineHeight = font.metrics("linespace")  # calculate hieght and weidth by font information
-            #     lineWidth = font.measure(x)
-            #     # print(lineHeight,lineWidth)
-            #     # print()
+            self.widgetsCleaner(self.currentButton, self.currentLabel)
 
-            #     self.currentButton[-1].place(x=(self.width - lineWidth) / 2,
-            #                                  y=counter * self.height / (buttonNum + 1) - lineHeight / 2)
         elif mode == "record":
-            for x in self.currentButton:
-                x.destroy()
+            self.widgetsCleaner(self.currentButton, self.currentLabel)
+            print(self.currentButton)
+            # for x in range(len(self.currentButton)):
+            #     self.currentButton[x].destroy()
             
             self.windowSize[lastmode] = []  # back up the size of root window
             self.windowSize[lastmode].append(self.width)
@@ -551,7 +569,7 @@ class windowsUI():
                                    .format(self.width, self.height, x, y))
         self.__subWindows.configure(bg=bgColor)
 
-        if listener == "mouse":
+        if listener == "mouse" and self.listener != None:
             self.listener = eventMouse()
             self.listener.StartListener()
             
@@ -564,8 +582,6 @@ class windowsUI():
             alphaValue (int): the visibility of the screen shot window
             bgColor (str): allow for user to custom the back ground color
         """
-
-        # print(type(self.listener))
         self.__subWindows = tkinter.Toplevel()  # set up sub window
         self.windowSize["root"] = []  # back up the size of root window
         self.windowSize["root"].append(self.width)
@@ -608,10 +624,11 @@ class windowsUI():
             # print("Start:",self.statusID)
             
         elif status == 1110:
+            self.messageBox = showinfo("RseMessager", "Please click what you would like us to\
+                click after pressing 'ok'. This message could be close in setting panel.")
             if self.listener == None:
                 self.listener = eventMouse()
                 self.listener.StartListener()
-                # if
             self.statusID = 2010
         
         
@@ -619,6 +636,7 @@ class windowsUI():
         # print("ID:",self.screenShot)
         print("Status:", self.statusID)
         self.keyBoardInterrupt.activeFlagSet(1)
+        self.listener.activeFlagSet(1)
         self.eventAction() # check any action need to take
         
         if self.screenShot == 1:
@@ -636,7 +654,7 @@ class windowsUI():
             tem = self.recoredArea.pop()
             # text=self.ocr.areTextTransfer(tem)
             # textBoxes = self.ocr.textboxSeekerTrainer(tem, 50)
-            self.textBoxes = self.ocr.textboxSeekerPredictor(tem, 50, 0)
+            self.textBoxes = self.ocr.textboxSeekerPredictor(tem, 3, 0)
             self.statusID = 3000
             self.screenShotCreation()
             counter = 0
@@ -781,15 +799,17 @@ class windowsUI():
                     
                     self.recoredArea.append(transformed)
                     print(transformed)
+                self.widgetsCleaner(self.__canvas, self.__subWindows)
                 self.__rec.clear()
-                self.__canvas.destroy()
-                self.__subWindows.destroy()
-                self.listener.terminate()
-                self.listener = None
                 self.__root.attributes("-alpha", self.alpha)
                 self.counter += 1
                 
                 self.statusID = 1000
+                
+        elif self.statusID == 2010:
+            clickedX, clickedY = self.listener.mouseGet("left")
+            if clickedX != -1 and clickedY != -1:
+                self.UserBehaviourController
                 
         elif self.statusID == 3000:
             if self.keyBoardInterrupt.statusGet() == 2:
@@ -798,19 +818,30 @@ class windowsUI():
                 self.y = -10
                 self.screenShot = 2
 
+                self.widgetsCleaner(self.__canvas, self.__subWindows)
                 self.__rec.clear()
-                self.__canvas.destroy()
-                self.__subWindows.destroy()
-                self.listener.terminate()
-                self.listener = None
                 self.__root.attributes("-alpha", self.alpha)
                 
                 self.statusID = 1000
+                
+        elif self.statusID == 3010:
+            pass
+        
+    
+    def widgetsCleaner(self, *arrayLike:Iterable) -> None:
+        for x in arrayLike:
+            if isinstance(x, Iterable):
+                for y in x:
+                    y.destroy()
+                x.clear()
+            else:
+                x.destroy()
+    
 
     def drawer(self) -> int:
         if self.listener != None:
 
-            self.listener.activeFlagSet(1)
+            
 
             if self.screenShot == 1 and self.__num > 0:  # 1是截图功能的id，number是多少个画了多少个矩形。
                 temx, temy = self.listener.mouseGet("left")  # 鼠标的绝对坐标。
@@ -944,6 +975,8 @@ class OCRController():
         self.temResult = []
         self.modelLabels = []
         self.relativeDistance = list(self.relativeDistance)
+        
+        self.screen = np.array([])
         # print(self.modelLabels, self.centroids, self.data ,self.modelID, self.relativeDistance)
         
     def areTextTransfer(self, targetArea:dict) -> list[str]:
@@ -1070,7 +1103,7 @@ class OCRController():
         # self.kmeans.fit(self.data[modelID])
         # labels = self.kmeans.predict(scaled_data)
         labels = self.KMEANSPredictor(gray_image, modelID, 2, 500, 1)
-        
+        print(labels)
             
         class2 = np.where(labels == 1)[0]
         result = []
@@ -1098,6 +1131,8 @@ class OCRController():
                 lastNode = copy.deepcopy(class2[x])
                 node = copy.deepcopy(class2[x])
             node+=1
+        if len(result) == 0:
+            result = copy.deepcopy(targetArea)
         # self.temResult = copy.deepcopy(result)
 
 
@@ -1141,20 +1176,23 @@ class OCRController():
             boundaryPixel = gray_image[textArea[x]["top"], textArea[x]["left"] : \
                 textArea[x]["left"] + textArea[x]["width"]].copy()
             
-            labels = self.KMEANSPredictor(boundaryPixel, modelID, 3, 600, 1, False, x == 0)
-            print(labels)
-            labels = np.diff(labels)
-            if np.where(labels == self.__get_mode(labels))[0].shape[0] < labels.shape[0] - 2:
+            labelsUpper = self.KMEANSPredictor(boundaryPixel, modelID, 3, 600, 1,\
+                False, x == 0)
+            print(labelsUpper)
+            labelsUpper = np.diff(labelsUpper)
+            if np.where(labelsUpper == self.__get_mode(labelsUpper))[0].shape[0]\
+                < labelsUpper.shape[0] - 2:
                 return False
             
             
             boundaryPixel = gray_image[textArea[x]["top"] + textArea[x]["height"], \
                 textArea[x]["left"] : textArea[x]["left"] + textArea[x]["width"]].copy()
             
-            labels = self.KMEANSPredictor(boundaryPixel, modelID, 3, 600, 1, False, False)
-            print(labels)
-            labels = np.diff(labels)
-            if np.where(labels == self.__get_mode(labels))[0].shape[0] < labels.shape[0] - 2:
+            labelsLower = self.KMEANSPredictor(boundaryPixel, modelID, 3, 600, 1,\
+                False, False)
+            print(labelsLower)
+            labelsLower = np.diff(labelsLower)
+            if np.where(labelsLower == self.__get_mode(labelsLower))[0].shape[0] < labelsLower.shape[0] - 2:
                 return False
 
         return True
@@ -1400,8 +1438,29 @@ class edit_excel():
 
 
 class UserBehaviourController():
-    def __init__(self) -> None:
-        pass
+    def __init__(self, mouseCon:mouse_control, mouseDetect:eventMouse, OCRCon:OCRController, \
+        dbManagement:edit_excel) -> None:
+        
+        self.recoredBehaviours = []
+        self.behavioursInterpreter = {"leftClick":mouseCon.move_and_press_mouse}
+        
+        
+        
+    def actionRecord(self, action:str, param, actionID = -1, edit = -1):
+        if actionID == -1 or actionID > self.recoredBehaviours:
+            self.recoredBehaviours.append([])
+            actionID = -1
+        
+        if edit == -1:
+            self.recoredBehaviours[actionID].append((action, param))
+            
+        else:
+            self.recoredBehaviours[actionID][edit] = (action, param)
+        
+    def actionExcute(self, actionID:int, step = -1):
+        return self.behavioursInterpreter[self.recoredBehaviours[actionID][step][0]], \
+            self.recoredBehaviours[actionID][step][1]
+        
 
 
 if __name__ == "__main__":
