@@ -1004,7 +1004,6 @@ class edit_excel():
             target_name = str(information_edit[1])
             # print(type(target_name))
             target_column = 2
-
             count = 2
             for row in sheet.iter_rows(min_row=2, values_only=True):
                 if str(row[target_column - 1]) == target_name:
@@ -1020,6 +1019,31 @@ class edit_excel():
                 count += 1
 
             workbook.save(path)
+        except Exception as e:
+            self.open_and_close_txt(e)
+
+    def search_member_information(self, label):
+        try:
+            path = os.getcwd() + "\\data\\人员信息统计.xlsx"
+            workbook = openpyxl.load_workbook(path)
+            sheet = workbook.active
+
+            target_value = label
+            target_column = "B"
+
+            target_row = None
+            for row in sheet.iter_rows(min_row=2, max_row=sheet.max_row, min_col=sheet[target_column].column,
+                                       max_col=sheet[target_column].column):
+                if row[1].value == target_value:
+                    target_row = row[1].row
+                    break
+            if target_row is not None:
+                row_data = [cell.value for cell in sheet[target_row]]
+
+                return row_data
+            else:
+                print("Target value not found in the specified column.")
+            pass
         except Exception as e:
             self.open_and_close_txt(e)
 
