@@ -387,12 +387,17 @@ class windowsUI():
     def __init__(self, override=False, alpha=0.8, bgColor="black", screenShot=-1, \
                  width=-1, height=-1, positionX=0, positionY=0, listener: eventMouse = None) -> None:
         # self.__timeList=[time.time(),0]
+        self.test = True # enable test code
+        self.testNum = 3
+        
         self.listener = listener
         self.keyBoardInterrupt = eventKeyboard()
         self.screenShot = screenShot
         self.screen = screeninfo.get_monitors()[0]
         # print("22222222222222222222222333333333333333333333")
-        self.mainPanelButtons = ({"Recognition Area Record": [1100], "Setting": [1101], "next page": [1102], "testRecord": [1103]},)
+        self.mainPanelButtons = ({"Recognition Area Record": [1100], "Setting": [1101], "next page": [1102], "testRecord": [1103]},
+                                {"Mouse Click": [1110], "Mouse Hold": [1111], "Mouse Move": [1112], "Scorlling": [1113],\
+                                    "Text Recognize": [1114], "Loop": [1115], "Standby": [1116]})
         # Store the buttons on main Panel and their status ID
         self.currentButton: list[tkinter.Button] = []
         self.currentLabel = []
@@ -403,6 +408,10 @@ class windowsUI():
 
         self.__rec = []  # store rectangle in canvas
         self.recoredArea = [] # store recorded screen shot area
+        self.textBoxes = [] # store recognized text boxes
+        self.textAreUpperBound = self.screen.height
+        self.textAreLowerBound = 0
+        
         self.x = -10  # store mouse click coordinations
         self.y = -10
         
@@ -414,6 +423,7 @@ class windowsUI():
 
         # self.__loopTime = 0  # use to count the time, 0.1s every loop
         self.__counter = 0  # status id for drawer function
+        self.counter = 0
         self.__root = tkinter.Tk()
         self.windowSize = {"root": [width, height, positionX, positionY], "screenShoter": [0, 0, 0, 0]}  # all type of window size
 
@@ -469,19 +479,19 @@ class windowsUI():
         if mode == "root":
             buttonNum = len(self.mainPanelButtons[view].keys())
             counter = 0
-            for x in self.mainPanelButtons[view].keys():
-                counter += 1
-                tem = self.__lambdaCreater(self.mainPanelButtons[view][x][0])
-                print(self.mainPanelButtons[view][x][0])
-                self.currentButton.append(tkinter.Button(self.__root, text=x, command=tem))
-                font = Font(font=self.currentButton[-1]["font"])  # get font information
-                lineHeight = font.metrics("linespace")  # calculate hieght and weidth by font information
-                lineWidth = font.measure(x)
-                # print(lineHeight,lineWidth)
-                # print()
+            # for x in self.mainPanelButtons[view].keys():
+            #     counter += 1
+            #     tem = self.__lambdaCreater(self.mainPanelButtons[view][x][0])
+            #     print(self.mainPanelButtons[view][x][0])
+            #     self.currentButton.append(tkinter.Button(self.__root, text=x, command=tem))
+            #     font = Font(font=self.currentButton[-1]["font"])  # get font information
+            #     lineHeight = font.metrics("linespace")  # calculate hieght and weidth by font information
+            #     lineWidth = font.measure(x)
+            #     # print(lineHeight,lineWidth)
+            #     # print()
 
-                self.currentButton[-1].place(x=(self.width - lineWidth) / 2,
-                                             y=counter * self.height / (buttonNum + 1) - lineHeight / 2)
+            #     self.currentButton[-1].place(x=(self.width - lineWidth) / 2,
+            #                                  y=counter * self.height / (buttonNum + 1) - lineHeight / 2)
         elif mode == "record":
             for x in self.currentButton:
                 x.destroy()
@@ -501,6 +511,21 @@ class windowsUI():
                 .format(self.width, self.height, self.positionX, self.positionY))
             
             self.__root.resizable(0, 0)
+            
+            
+        for x in self.mainPanelButtons[view].keys():# place buttons
+            counter += 1
+            tem = self.__lambdaCreater(self.mainPanelButtons[view][x][0])
+            print(self.mainPanelButtons[view][x][0])
+            self.currentButton.append(tkinter.Button(self.__root, text=x, command=tem))
+            font = Font(font=self.currentButton[-1]["font"])  # get font information
+            lineHeight = font.metrics("linespace")  # calculate hieght and weidth by font information
+            lineWidth = font.measure(x)
+            # print(lineHeight,lineWidth)
+            # print()
+#
+            self.currentButton[-1].place(x=(self.width - lineWidth) / 2,
+                                         y=counter * self.height / (buttonNum + 1) - lineHeight / 2)
 
     def __lambdaCreater(self, x):  # create lambda function for button, prevent shollow copy
         return lambda: self.Start(x)
@@ -540,7 +565,7 @@ class windowsUI():
             bgColor (str): allow for user to custom the back ground color
         """
 
-        print(type(self.listener))
+        # print(type(self.listener))
         self.__subWindows = tkinter.Toplevel()  # set up sub window
         self.windowSize["root"] = []  # back up the size of root window
         self.windowSize["root"].append(self.width)
@@ -581,6 +606,15 @@ class windowsUI():
             self.__root.attributes("-alpha", 0)
             self.statusID = 2000
             # print("Start:",self.statusID)
+            
+        elif status == 1110:
+            if self.listener == None:
+                self.listener = eventMouse()
+                self.listener.StartListener()
+                # if
+            self.statusID = 2010
+        
+        
     def keeper(self) -> None:
         # print("ID:",self.screenShot)
         print("Status:", self.statusID)
@@ -594,16 +628,20 @@ class windowsUI():
         else:  # mian panel mode
             self.__root.after(100, self.keeper)
 
-        
-        if len(self.recoredArea)==1: # test
+        self.tester()
+
+            
+    def tester(self):
+        if len(self.recoredArea) > 0 and self.testNum == 0 and self.test: # test
             tem = self.recoredArea.pop()
             # text=self.ocr.areTextTransfer(tem)
             # textBoxes = self.ocr.textboxSeekerTrainer(tem, 50)
-            textBoxes = self.ocr.textboxSeekerPredictor(tem, 50, 0)
+            self.textBoxes = self.ocr.textboxSeekerPredictor(tem, 50, 0)
             self.statusID = 3000
             self.screenShotCreation()
             counter = 0
-            for x in textBoxes:
+            self.testNum = 2
+            for x in self.textBoxes:
                 leftX = (x["left"] * self.width) / self.screen.width  # 转换相对坐标。
                 leftY = (x["top"] * self.height) / self.screen.height
                 
@@ -619,8 +657,110 @@ class windowsUI():
                 if counter % 3 == 0:
                     counter = 0
             print(self.recoredArea)
-            self.dbManagement.OCRModelDataSaver(self.ocr.centroids,\
-                self.ocr.data, self.ocr.modelID, self.ocr.relativeDistance)
+            # self.dbManagement.OCRModelDataSaver(self.ocr.centroids,\
+            #     self.ocr.data, self.ocr.modelID, self.ocr.relativeDistance)
+            
+        elif len(self.recoredArea) > 0 and self.testNum == 1 and self.test: # test
+            
+            tem = copy.deepcopy(self.recoredArea)
+            # text=self.ocr.areTextTransfer(tem)
+            # textBoxes = self.ocr.textboxSeekerTrainer(tem, 50)
+            # textBoxes = self.ocr.textboxSeekerPredictor(tem, 50, 0)
+            self.ocr.textLocationTrainer(tem, {"top": 0, "left": 0, "width": \
+                self.screen.width, "height": self.screen.height})
+            
+            # self.ocr.textLocationPredictor(tem, {"top": 0, "left": 0, "width": \
+            #     self.screen.width, "height": self.screen.height}, 1)
+            
+            self.testNum = 100
+            self.recoredArea.clear()
+            # self.statusID = 3000
+            # self.screenShotCreation()
+            # counter = 0
+            # for x in textBoxes:
+            #     leftX = (x["left"] * self.width) / self.screen.width  # 转换相对坐标。
+            #     leftY = (x["top"] * self.height) / self.screen.height
+                
+            #     rightX = ((x["left"] + x["width"]) * self.width) / self.screen.width  # 转换相对坐标。
+            #     rightY = ((x["top"] + x["height"]) * self.height) / self.screen.height
+            #     if counter == 0:
+            #         self.rectangleCreation(leftX, leftY, rightX, rightY, "crimson")
+            #     elif counter == 1:
+            #         self.rectangleCreation(leftX, leftY, rightX, rightY, "blue")
+            #     else:
+            #         self.rectangleCreation(leftX, leftY, rightX, rightY, "green")
+            #     counter += 1
+            #     if counter % 3 == 0:
+            #         counter = 0
+            # print(self.recoredArea)
+            # self.dbManagement.OCRModelDataSaver(self.ocr.centroids,\
+            #     self.ocr.data, self.ocr.modelID, self.ocr.relativeDistance)
+            
+        elif len(self.recoredArea) > 0 and self.testNum == 100 and self.test:
+            
+            tem = copy.deepcopy(self.recoredArea)
+            # text=self.ocr.areTextTransfer(tem)
+            # textBoxes = self.ocr.textboxSeekerTrainer(tem, 50)
+            # textBoxes = self.ocr.textboxSeekerPredictor(tem, 50, 0)
+            # self.ocr.textLocationTrainer(tem, {"top": 0, "left": 0, "width": \
+            #     self.screen.width, "height": self.screen.height})
+            
+            self.ocr.textLocationPredictor(tem, {"top": 0, "left": 0, "width": \
+                self.screen.width, "height": self.screen.height}, 1)
+            
+            self.testNum = 100
+            self.recoredArea.clear()
+            
+        elif len(self.recoredArea) > 0 and self.testNum == 2 and self.test:
+            result = []
+            for x in self.textBoxes:
+                tem = copy.deepcopy(self.recoredArea)
+                if len(self.ocr.relativeDistance[1]) == 0:
+                    print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+                    result += self.ocr.textSeeker(tem, copy.deepcopy(x), {"top": 0, "left": 0, "width": \
+                        self.screen.width, "height": self.screen.height}, 1, "train", \
+                            self.textAreLowerBound - self.textAreUpperBound, self.textAreUpperBound, \
+                                self.textAreLowerBound)
+                else:
+                    print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+                    result += self.ocr.textSeeker(tem, copy.deepcopy(x), {"top": 0, "left": 0, "width": \
+                        self.screen.width, "height": self.screen.height}, 1, "predict")
+            # text=self.ocr.areTextTransfer(tem)
+            # textBoxes = self.ocr.textboxSeekerTrainer(tem, 50)
+            # textBoxes = self.ocr.textboxSeekerPredictor(tem, 50, 0)
+            # self.ocr.textLocationTrainer(tem, {"top": 0, "left": 0, "width": \
+            #     self.screen.width, "height": self.screen.height})
+            self.statusID = 3000
+            self.screenShotCreation()
+            counter = 0
+            print(result)
+            for x in result:
+                leftX = (x["left"] * self.width) / self.screen.width  # 转换相对坐标。
+                leftY = (x["top"] * self.height) / self.screen.height
+                
+                rightX = ((x["left"] + x["width"]) * self.width) / self.screen.width  # 转换相对坐标。
+                rightY = ((x["top"] + x["height"]) * self.height) / self.screen.height
+                if counter == 0:
+                    self.rectangleCreation(leftX, leftY, rightX, rightY, "crimson")
+                elif counter == 1:
+                    self.rectangleCreation(leftX, leftY, rightX, rightY, "blue")
+                else:
+                    self.rectangleCreation(leftX, leftY, rightX, rightY, "green")
+                counter += 1
+                if counter % 3 == 0:
+                    counter = 0
+            self.ocr.textLocationPredictor(tem, {"top": 0, "left": 0, "width": \
+                self.screen.width, "height": self.screen.height}, 1)
+            
+            # self.testNum = 100
+            self.recoredArea.clear()
+            
+        elif len(self.recoredArea) > 0 and self.testNum == 3 and self.test: # test
+            tem = self.recoredArea.pop()
+            text = self.ocr.areTextTransfer(tem)
+            # textBoxes = self.ocr.textboxSeekerTrainer(tem, 50)
+
+            print(text)
             
     def eventAction(self) -> None:
         
@@ -630,16 +770,25 @@ class windowsUI():
                 self.x = -10
                 self.y = -10
                 self.screenShot = 2
-                self.__root.attributes("-alpha", self.alpha)
 
                 for x in self.__rec:
-                    self.recoredArea.append(self.transform(x))
-                    print(self.transform(x))
+                    transformed = self.transform(x)
+                    if self.counter == 1:
+                        self.textAreUpperBound = min(transformed["top"] , self.textAreUpperBound)
+                        self.textAreLowerBound = max(transformed["top"] + transformed["height"],\
+                            self.textAreLowerBound)
+                    print(self.textAreUpperBound, self.textAreLowerBound)
+                    
+                    self.recoredArea.append(transformed)
+                    print(transformed)
                 self.__rec.clear()
                 self.__canvas.destroy()
                 self.__subWindows.destroy()
                 self.listener.terminate()
                 self.listener = None
+                self.__root.attributes("-alpha", self.alpha)
+                self.counter += 1
+                
                 self.statusID = 1000
                 
         elif self.statusID == 3000:
@@ -648,13 +797,14 @@ class windowsUI():
                 self.x = -10
                 self.y = -10
                 self.screenShot = 2
-                self.__root.attributes("-alpha", self.alpha)
 
                 self.__rec.clear()
                 self.__canvas.destroy()
                 self.__subWindows.destroy()
                 self.listener.terminate()
                 self.listener = None
+                self.__root.attributes("-alpha", self.alpha)
+                
                 self.statusID = 1000
 
     def drawer(self) -> int:
@@ -782,19 +932,19 @@ class OCRController():
         self.sct = mss()
         self.currentPath = path
         self.ocr = PaddleOCR(use_angle_cls = True, lang = "ch",
-                rec_model_dir = self.currentPath + "\\inference\\recognize\\",
-                cls_model_dir = self.currentPath + "\\inference\\cls\\",
-                det_model_dir = self.currentPath + "\\inference\\det\\") 
+                rec_model_dir = self.currentPath + "\\inference\\ch_PP-OCRv4_rec_infer\\",
+                cls_model_dir = self.currentPath + "\\inference\\ch_ppocr_mobile_v2.0_cls_infer\\",
+                det_model_dir = self.currentPath + "\\inference\\ch_PP-OCRv4_det_infer\\") 
 
-        print(incodeFile)
+        # print(incodeFile)
         self.kmeans = None
         self.centroids, self.data ,self.modelID, self.relativeDistance = incodeFile
-        self.centroids, self.data ,self.modelID, self.relativeDistance = np.array(self.centroids), \
-            np.array(self.data), np.array(self.modelID), np.array(self.relativeDistance)
+        self.centroids, self.data ,self.modelID = np.array(self.centroids), \
+            np.array(self.data), np.array(self.modelID)
         self.temResult = []
         self.modelLabels = []
         self.relativeDistance = list(self.relativeDistance)
-        print(self.modelLabels, self.centroids, self.data ,self.modelID, self.relativeDistance)
+        # print(self.modelLabels, self.centroids, self.data ,self.modelID, self.relativeDistance)
         
     def areTextTransfer(self, targetArea:dict) -> list[str]:
         screen = np.array(self.sct.grab(targetArea))
@@ -805,6 +955,7 @@ class OCRController():
         for x in result:
             # boxes = [line[0] for line in x]
             txts = [line[1][0] for line in x]
+            # scores = [line[1][1] for line in x]
         # cv2.namedWindow("Hello", cv2.WINDOW_AUTOSIZE)
         # cv2.imshow("Hello", screen)
         # cv2.waitKey(0)
@@ -991,7 +1142,9 @@ class OCRController():
                 textArea[x]["left"] + textArea[x]["width"]].copy()
             
             labels = self.KMEANSPredictor(boundaryPixel, modelID, 3, 600, 1, False, x == 0)
-            if not np.where(labels == labels[0])[0].shape[0] == labels.shape[0]:
+            print(labels)
+            labels = np.diff(labels)
+            if np.where(labels == self.__get_mode(labels))[0].shape[0] < labels.shape[0] - 2:
                 return False
             
             
@@ -999,45 +1152,154 @@ class OCRController():
                 textArea[x]["left"] : textArea[x]["left"] + textArea[x]["width"]].copy()
             
             labels = self.KMEANSPredictor(boundaryPixel, modelID, 3, 600, 1, False, False)
-            if not np.where(labels == labels[0])[0].shape[0] == labels.shape[0]:
+            print(labels)
+            labels = np.diff(labels)
+            if np.where(labels == self.__get_mode(labels))[0].shape[0] < labels.shape[0] - 2:
                 return False
 
         return True
         
         
+    def __get_mode(self, Kdarray:np.ndarray):
+        # Flatten the array into a 1-dimensional array
+        flattened_array = np.ravel(Kdarray)
+
+        # Get the unique values and their counts
+        unique_values, counts = np.unique(flattened_array, return_counts=True)
+
+        # Find the index of the maximum count
+        max_count_index = np.argmax(counts)
+
+        # Get the mode value(s) from the unique values array
+        mode_value = unique_values[max_count_index]
+
+        return mode_value
+
+        
     def textSeeker(self, textArea:list[dict], textboxArea:dict, screenArea:dict, modelID:int, \
-        mode = "train", textHeight = -1):
+        mode = "train", textHeight = -1, upper = -1, lower = -1):
         if mode == "train":
-            pass
+            print(textboxArea, textHeight)
+            print(screenArea)
+            for y in range(0, textboxArea["height"] - textHeight, 2):
+                print(y)
+                counter = 0
+                result = []
+                temRelativeDis = []
+                for x in range(len(textArea)):
+                    if y == 0:
+                        textArea[x]["top"] = textArea[x]["top"] - (upper - textboxArea["top"])
+                    else:
+                        textArea[x]["top"] += 2
+                    print(textArea[x])
+                        
+                    temRelativeDis.append(textArea[x]["top"] - textboxArea["top"])
+                        
+                    tem = self.areTextTransfer(textArea[x])
+                    print(tem)
+                    print("---------------------------")
+                    if len(tem) > 0:
+                        result.append(tem[0])
+                    else:
+                        counter += 1
+                        result.append(None)
+                        
+                if counter == 0 and self.textLocationPredictor(textArea, screenArea, modelID):
+                    self.relativeDistance[modelID].append(temRelativeDis)
+                    break
+            print(result, "<<<<<<<<<<<<<<<<<<<<<<")
+            # return result
+            return textArea
         else:
+            satisfyFlag = []
+            trainList = []
             result = []
-            satisfyFlag = False
-            if textHeight == -1:
+            resultUpper = []
+            resultLower = []
+            if textHeight == -1 or upper == -1 or lower == -1:
                 upper = 90000
                 lower = 0
             for y in range(len(self.relativeDistance[modelID])):
+                result = []
+                resultUpper = []
+                resultLower = []
                 counter = 0
+                counterUpper = 0
+                counterLower = 0
+                adjustAreaLower = []
+                adjustAreaUpper = []
                 for x in range(len(textArea)):
+                    if y == 0:
+                        trainList.append(textArea[x].copy())
+                        if textHeight == -1:
+                            upper = min(textArea[x]["top"], upper)
+                            lower = max(textArea[x]["top"] + textArea[x]["height"], lower)
                     textArea[x]["top"] = self.relativeDistance[modelID][y][x] + textboxArea["top"]
-                    if textHeight == -1:
-                        upper = min(textArea[x]["top"], upper)
-                        lower = max(textArea[x]["top"] + textArea[x]["height"], lower)
-                    tem = self.areTextTransfer(textArea[x])
-                    if len(tem) == 0:
-                        counter += 1
-                        result.append(tem)
+                    adjustAreaLower.append(textArea[x].copy())
+                    adjustAreaLower[-1]["top"] += 2
+                    adjustAreaUpper.append(textArea[x].copy())
+                    adjustAreaUpper[-1]["top"] -= 2
                     
-                if self.textLocationPredictor([textArea[x]], screenArea, modelID):
-                    satisfyFlag = True
-                    break
+
+                    tem = self.areTextTransfer(adjustAreaUpper[-1])
+                    print(tem)
+                    if len(tem) > 0:
+                        resultUpper.append(tem[0])
+                    else:
+                        counterUpper += 1
+                        resultUpper.append(None)
+                        
+                    tem = self.areTextTransfer(textArea[x])
+                    print(tem)
+                    if len(tem) > 0:
+                        result.append(tem[0])
+                    else:
+                        counter += 1
+                        result.append(None)
+                        
+                        
+                    tem = self.areTextTransfer(adjustAreaLower[x])
+                    print(tem)
+                    print("---------------------------")
+                    if len(tem) > 0:
+                        resultLower.append(tem[0])
+                    else:
+                        counterLower += 1
+                        resultLower.append(None)
+                        
+                    
                 if textHeight == -1:
                     textHeight = lower - upper
-                
-            if satisfyFlag:
-                for x in textArea:
-                    pass
+                    
+                if self.textLocationPredictor(textArea, screenArea, modelID) and counter == 0:
+                    satisfyFlag.append(True)
+                    break
+                elif self.textLocationPredictor(adjustAreaUpper, screenArea, modelID) and counterUpper == 0:
+                    satisfyFlag.append(True)
+                    break
+                elif self.textLocationPredictor(adjustAreaLower, screenArea, modelID) and counterLower == 0:
+                    satisfyFlag.append(True)
+                    break
+                else:
+                    satisfyFlag.append(False)
+                    
+            print(satisfyFlag)
+            if True in satisfyFlag:
+                valid = satisfyFlag.index(True)
+                if valid == 0:
+                    # return result
+                    print(result, "<<<<<<<<<<<<<<<<<<<<<<")
+                    return textArea
+                elif valid == 1:
+                    # return resultUpper
+                    print(resultUpper, "<<<<<<<<<<<<<<<<<<<<<<")
+                    return adjustAreaUpper
+                else:
+                    # return resultLower
+                    print(resultLower, "<<<<<<<<<<<<<<<<<<<<<<")
+                    return adjustAreaLower
             else:
-                self.textSeeker(textArea, textboxArea, screenArea, modelID, "train", textHeight)
+                return self.textSeeker(trainList, textboxArea, screenArea, modelID, "train", textHeight, upper, lower)
 
         
     def KMEANSTrainer(self, gray_image:np.ndarray, n_clusters = 2,random_state = 0, max_iter = 500, mode = True):
@@ -1058,23 +1320,23 @@ class OCRController():
         
         self.data = list(self.data)
         self.data.append(scaled_data)
-        print(self.data)
+        # print(self.data)
         self.data = np.array(self.data, dtype = object)
-        print(">>>.....>>>>>>>")
+        # print(">>>.....>>>>>>>")
         self.kmeans = KMeans(n_clusters = n_clusters, random_state = random_state, max_iter = max_iter)
         self.kmeans.fit(scaled_data)
         
         self.modelLabels = list(self.modelLabels)
         self.modelLabels.append(self.kmeans.labels_)
-        print(self.modelLabels)
+        # print(self.modelLabels)
         self.modelLabels = np.array(self.modelLabels, dtype = object)
         
-        print(">>>.....>>>>>>>")
+        # print(">>>.....>>>>>>>")
         self.relativeDistance.append([])
 
         self.centroids = list(self.centroids)
         self.centroids.append(self.kmeans.cluster_centers_)
-        print(self.centroids)
+        # print(self.centroids)
         self.centroids = np.array(self.centroids, dtype = object)
         # print(self.centroids)
         # print(self.modelLabels)
@@ -1135,6 +1397,12 @@ class edit_excel():
         
         print("loaded:", inCodeFile)
         return inCodeFile
+
+
+class UserBehaviourController():
+    def __init__(self) -> None:
+        pass
+
 
 if __name__ == "__main__":
     # startEvent=eventKeyboard()
