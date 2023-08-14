@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import math
 import copy
 
@@ -12,8 +13,8 @@ from mss import mss
 from pynput.mouse import Controller, Button
 import numpy as np
 import pyautogui
-import cv2
-from paddleocr import PaddleOCR
+# import cv2
+# from paddleocr import PaddleOCR
 import os
 import re
 
@@ -24,10 +25,10 @@ class eventKeyboard():
         invoke!
     NOTICE!!!  pressed(key) would check whether main program is down every 10 sec,
         to make it continous working, call activeFlagSet(newFlag=1) to reactive the working status.
-        
+
     StartListener(): start the listener, also safe for any unterminate listener.
     terminate(): end the listener
-    
+
     statusGet(): return listener status, 0 for initiated, 1 for started, >=2 for specific keys were pressed,
         -1 for terminated.
     """
@@ -190,7 +191,7 @@ class eventKeyboard():
             else:
                 self.activeFlag = -1
                 self.timeIntervalStart = time.time()
-        # if key == pynput.keyboard.Key.esc: 
+        # if key == pynput.keyboard.Key.esc:
         #     return False
 
     def StartListener(self) -> None:
@@ -233,10 +234,10 @@ class eventMouse():
         invoke!
     NOTICE!!!  clicked(x,y) and moving(x,y) would check whether main program is down every 10 sec,
         to make it continous working, call activeFlagSet(newFlag=1) to reactive the working status.
-        
+
     StartListener(): start the listeners.
     terminate(): end the listeners.
-    
+
     mouseGet(side): if side can be "left" or "right",return the x,y coordinate for last time mouse clicked
 
     motionGet(): return the x,y coordinate for last time mouse moved
@@ -355,7 +356,7 @@ class eventMouse():
 
 class windowsUI():
     """
-    class parameters: 
+    class parameters:
         `override`: self defined tk windows, only set true when using screenShot mode or message box mode
         `alpha`: visibility of root window
         `bgColor`: background color, only root windows
@@ -363,9 +364,9 @@ class windowsUI():
         width,height: size of root window
         positionX,positionY: x,y for top left of window
         `listener`: mouse listener
-        
+
         !!! Flag summary:
-        `self.statusID`: 
+        `self.statusID`:
             singel digit: the function ID for current view windows/panels
             ten digit: the view ID for current window/panel
             hundred digit: special digit repersent the main program status
@@ -376,14 +377,14 @@ class windowsUI():
                     second "1" means the button has pressed and wait for event function to handle
                     first "0" means first view of root window
                     second "0" means the the button to Start up screen shot is on first view of root window
-            
+
             detials:
             -1: standby flag
             "1100": record user behaviour
             "1103": Start up screen shot
             "2000": Screen shot mode
             "1010': behaviour recording panel
-            
+
     """
 
     def __init__(self, override=False, alpha=0.8, bgColor="black", screenShot=-1, \
@@ -394,7 +395,8 @@ class windowsUI():
         self.screenShot = screenShot
         self.screen = screeninfo.get_monitors()[0]
         # print("22222222222222222222222333333333333333333333")
-        self.mainPanelButtons = ({"Recognition Area Record": [1100], "Setting": [1101], "next page": [1102], "testRecord": [1103]},)
+        self.mainPanelButtons = (
+            {"Recognition Area Record": [1100], "Setting": [1101], "next page": [1102], "testRecord": [1103]},)
         # Store the buttons on main Panel and their status ID
         self.currentButton: list[tkinter.Button] = []
         self.currentLabel = []
@@ -407,10 +409,9 @@ class windowsUI():
         self.recoredArea = []  # store recorded screen shot area
         self.x = -10  # store mouse click coordinations
         self.y = -10
-        
+
         dbManagement = edit_excel()
         self.ocr = OCRController(dbManagement.currentPath)
-
 
         self.xRight = -1  # store mouse move coordinations
         self.yRight = -1
@@ -418,13 +419,14 @@ class windowsUI():
         # self.__loopTime = 0  # use to count the time, 0.1s every loop
         self.__counter = 0  # status id for drawer function
         self.__root = tkinter.Tk()
-        self.windowSize = {"root": [width, height, positionX, positionY], "screenShoter": [0, 0, 0, 0]}  # all type of window size
+        self.windowSize = {"root": [width, height, positionX, positionY],
+                           "screenShoter": [0, 0, 0, 0]}  # all type of window size
 
         self.width = width  # current use width and height
         self.height = height
         self.bgColor = bgColor
         self.alpha = alpha
-        
+
         self.positionX = positionX
         self.positionY = positionY
 
@@ -468,7 +470,7 @@ class windowsUI():
 
         self.__root.mainloop()
 
-    def layOutController(self, mode="root", view=0, lastmode = None) -> None:
+    def layOutController(self, mode="root", view=0, lastmode=None) -> None:
         if mode == "root":
             buttonNum = len(self.mainPanelButtons[view].keys())
             counter = 0
@@ -488,41 +490,41 @@ class windowsUI():
         elif mode == "record":
             for x in self.currentButton:
                 x.destroy()
-            
+
             self.windowSize[lastmode] = []  # back up the size of root window
             self.windowSize[lastmode].append(self.width)
             self.windowSize[lastmode].append(self.height)
             self.windowSize[lastmode].append(self.positionX)
             self.windowSize[lastmode].append(self.positionY)
-            
+
             self.width = int(self.__root.winfo_screenwidth() / 5)
             self.height = int(self.width * 2 / 1)
             self.positionX = 50
             self.positionY = 50
-            
+
             self.__root.geometry("{0}x{1}+{2}+{3}" \
-                .format(self.width, self.height, self.positionX, self.positionY))
-            
+                                 .format(self.width, self.height, self.positionX, self.positionY))
+
             self.__root.resizable(0, 0)
 
     def __lambdaCreater(self, x):  # create lambda function for button, prevent shollow copy
         return lambda: self.Start(x)
 
-    def subWindowCreater(self, height, weight, lastMode = "root", x = 100, y = 100, \
-        listener = "None", alphaValue = 0.8, bgColor = "black"):
-        
+    def subWindowCreater(self, height, weight, lastMode="root", x=100, y=100, \
+                         listener="None", alphaValue=0.8, bgColor="black"):
+
         self.__subWindows = tkinter.Toplevel()  # set up sub window
         self.windowSize[lastMode] = []  # back up the size of last window
         self.windowSize[lastMode].append(self.width)
         self.windowSize[lastMode].append(self.height)
         self.windowSize[lastMode].append(self.positionX)
         self.windowSize[lastMode].append(self.positionY)
-        
+
         self.width = weight
         self.height = height
         self.positionX = x
         self.positionY = y
-        
+
         self.__subWindows.attributes("-alpha", alphaValue)
 
         self.__subWindows.geometry("{0}x{1}+{2}+{3}" \
@@ -532,9 +534,9 @@ class windowsUI():
         if listener == "mouse":
             self.listener = eventMouse()
             self.listener.StartListener()
-            
+
         self.__subWindows.resizable(0, 0)
-        
+
     def screenShotCreation(self, alphaValue=0.5, bgColor="black") -> None:
         """_summary_
 
@@ -550,7 +552,7 @@ class windowsUI():
         self.windowSize["root"].append(self.height)
         self.windowSize["root"].append(self.positionX)
         self.windowSize["root"].append(self.positionY)
-        
+
         self.width = self.__subWindows.winfo_screenwidth()  # make it large as the screen
         self.height = self.__subWindows.winfo_screenheight()
 
@@ -576,7 +578,7 @@ class windowsUI():
         if status == 1100:  #
             self.statusID = 1010
             self.layOutController("record", 1, "root")
-            
+
         elif status == 1103:
             self.screenShotCreation()
             # self.subWindows.append(windowsUI(True,0.5,"black",listener=mouseL,screenShot=3))
@@ -584,12 +586,13 @@ class windowsUI():
             self.__root.attributes("-alpha", 0)
             self.statusID = 2000
             # print("Start:",self.statusID)
+
     def keeper(self) -> None:
         # print("ID:",self.screenShot)
         print("Status:", self.statusID)
         self.keyBoardInterrupt.activeFlagSet(1)
-        self.eventAction() # check any action need to take
-        
+        self.eventAction()  # check any action need to take
+
         if self.screenShot == 1:
             if self.drawer() == 1:
                 self.__root.after(100, self.keeper)
@@ -597,16 +600,14 @@ class windowsUI():
         else:  # mian panel mode
             self.__root.after(100, self.keeper)
 
-        
-        if len(self.recoredArea)==1: # test
-            tem=self.recoredArea.pop()
-            text=self.ocr.areTextTransfer(tem)
+        if len(self.recoredArea) == 1:  # test
+            tem = self.recoredArea.pop()
+            text = self.ocr.areTextTransfer(tem)
             print(text)
             print(self.recoredArea)
-            
-            
+
     def eventAction(self) -> None:
-        
+
         if self.statusID == 2000:
             if self.keyBoardInterrupt.statusGet() == 2:
                 # print("ssssssssssssssss",self.statusID)
@@ -747,16 +748,15 @@ class OCRController():
         # pytesseract.pytesseract.tesseract_cmd = r""
         self.sct = mss()
         self.currentPath = path
-        self.ocr = PaddleOCR(use_angle_cls = True, lang = "ch",
-                rec_model_dir = self.currentPath + "\\inference\\recognize\\",
-                cls_model_dir = self.currentPath + "\\inference\\cls\\",
-                det_model_dir = self.currentPath + "\\inference\\det\\") 
-        
-    def areTextTransfer(self, targetArea:dict) -> list[str]:
+        self.ocr = PaddleOCR(use_angle_cls=True, lang="ch",
+                             rec_model_dir=self.currentPath + "\\inference\\recognize\\",
+                             cls_model_dir=self.currentPath + "\\inference\\cls\\",
+                             det_model_dir=self.currentPath + "\\inference\\det\\")
 
+    def areTextTransfer(self, targetArea: dict) -> list[str]:
         screen = np.array(self.sct.grab(targetArea))
         image_rgb = cv2.cvtColor(screen, cv2.COLOR_BGR2RGB)
-        
+
         result = self.ocr.ocr(image_rgb, cls=True)
         txts = []
         for x in result:
@@ -778,11 +778,30 @@ class edit_excel():
         self.title_list = []
         self.excel_name = ""
 
-    def edit_excel(self, page_title, list_Title, list_Data, mod=0):
+    def read_npy(self, path):
+        if os.path.exists(path):
+
+            the_title_list_np = np.load(path)
+            the_title_list = list(the_title_list_np)
+            return the_title_list
+        else:
+            the_title_list = []
+            return the_title_list
+
+    def save_title(self, title, path):
+        title_np = np.array(title)
+        np.save(path, title_np)
+
+    def new_data_excel(self, page_title=[], list_Title=[], list_Data=[], member_list=[], mod=0):
         try:
-            self.create_new_folder()
-            self.create_new_excel(mod)
-            self.create_and_import_sheet(page_title, list_Title, list_Data)
+            if mod == 0:
+                self.create_new_folder()
+                self.create_new_excel(0)
+                self.create_and_import_sheet(page_title, list_Title, list_Data)
+            elif mod == 1:
+                self.create_new_folder()
+                self.create_new_excel(1)
+                self.import_member_information(member_list)
         except Exception as e:
             self.open_and_close_txt(e)
 
@@ -793,6 +812,7 @@ class edit_excel():
         f3.write(localDate + ": " + str(e) + "\n")
         f3.close()
 
+    # 下面三个function要一起调用才是某月数据
     # 创建文件夹（数据库）
     def create_new_folder(self):
         try:
@@ -822,40 +842,73 @@ class edit_excel():
                     df = pd.DataFrame()
                     df.to_excel(file_path, index=False)
                     self.excel_name = name
-            elif mod == 1:  # 这是成员信息，暂时没用到
-                pass
+            elif mod == 1:
+                name = "人员信息统计.xlsx"
+                file_path = os.path.join(self.currentPath, name)
+                if os.path.exists(file_path):  # 判断该excel是否存在于这个文件夹中
+                    self.excel_name = name
+                    print("已经存在")
+                else:
+                    workbook = openpyxl.Workbook()
+                    sheet = workbook.active
+                    sheet['A1'] = '昵称'
+                    sheet['B1'] = '标签'
+                    sheet['C1'] = '加入'
+                    sheet['D1'] = '最近退出'
+                    sheet['E1'] = '差值'
+                    sheet['F1'] = '常驻认证T/F'
+                    workbook.save(file_path)
+                    self.excel_name = name
         except Exception as e:
             self.open_and_close_txt(e)
 
+    # 导入数据
     def create_and_import_sheet(self, page_title, list_Title, list_Data):
         try:
             file_path = os.path.join(self.currentPath, self.excel_name)
+            npy_path = os.path.join(self.currentPath, self.excel_name + ".npy")
             # print(self.currentPath)
             print("excel name is: " + self.excel_name)
+            self.title_list = self.read_npy(npy_path)
 
             start_column = 0
             start_column_letter = ""
             actual_page_title_row = 1  # page 的名字的行数
             actual_list_title_row = 2  # 数据的名字的行数
 
-            wb = openpyxl.load_workbook(file_path)
+            wb = openpyxl.load_workbook(file_path)  # 展开合并单元格
             ws = wb.active
-            if page_title[0] not in self.title_list:
+            print("chaifen")
+            title_column = 0
+            # while ws[openpyxl.utils.get_column_letter(1 + title_column * 7) + str(1)].value is not None:
+            #     start_row = 1
+            #     end_row = 1
+            #     start_column = title_column
+            #     end_column = 7 + title_column * 7
+            #     ws.unmerge_cells(start_row=start_row, end_row=end_row, start_column=start_column,
+            #                    end_column=end_column)
+            #     title_column += 1
+            # print("jiesu")
+
+            if page_title[0] not in self.title_list:  # title_list是page的标题
                 self.title_list.append(page_title[0])
                 page_number = self.title_list.index(page_title[0])
                 start_column = 7 * page_number + 1  # 开始列名的数字
                 for i in range(0, len(list_Title)):
                     ws[openpyxl.utils.get_column_letter(start_column + i) + str(actual_page_title_row)] = page_title[0]
                     ws[openpyxl.utils.get_column_letter(start_column + i) + str(actual_list_title_row)] = list_Title[i]
-            else:
-                page_number = self.title_list.index((page_title[0]))
-                start_column = 7 * page_number
 
+
+
+            else:
+                print(1)
+                page_number = self.title_list.index((page_title[0]))
+                start_column = 7 * page_number + 1
             count = 1
             #  判断一行的第一个cell是否为空，如果不是则count加一
+            print(2)
             while ws[
                 openpyxl.utils.get_column_letter(start_column) + str(actual_list_title_row + count)].value is not None:
-
                 # print(ws[openpyxl.utils.get_column_letter(start_column) + str(actual_list_title_row + count)].value)
                 if ws[openpyxl.utils.get_column_letter(start_column) + str(actual_list_title_row + count)].value == \
                         list_Data[0]:
@@ -864,27 +917,135 @@ class edit_excel():
 
                     break
                 count = count + 1
-
+            print(3)
             #  从这一行的第一个数值开始填写
             for i in range(0, len(list_Data)):
+                # print(list_Data[i])
                 ws[openpyxl.utils.get_column_letter(start_column + i) + str(actual_list_title_row + count)] \
                     = list_Data[i]
+            print(4)
 
             title_column = 0
             while ws[openpyxl.utils.get_column_letter(1 + title_column * 7) + str(1)].value is not None:
                 start_row = 1
                 end_row = 1
-                start_column = 1
+                start_column = title_column * 7 + 1
                 end_column = 7 + title_column * 7
                 ws.merge_cells(start_row=start_row, end_row=end_row, start_column=start_column, end_column=end_column)
+
                 title_column += 1
+
             wb.save(file_path)
+            self.save_title(self.title_list, npy_path)
+
+
 
         except Exception as e:
             self.open_and_close_txt(e)
 
-    def merge_title_cell(self, excel):  # 所有完成之后，最后一步在合并单元格
-        pass
+    # 编辑数据
+    # def edit_sheet(self, excel_name, page_title, list_Title, list_Data):
+    #     try:
+    #         path = os.getcwd() + "\\data\\" + excel_name
+    #         workbook = openpyxl.load_workbook(path)
+    #
+    #         sheet = workbook.active
+    #         page_name = str(page_title[0])
+    #         index = 0
+    #
+    #         a = "昵称"
+    #         b = "标签"
+    #         if b in list_Title:  # 确认锚点
+    #             index = list_Title.index(a)
+    #         elif a in list_Title:
+    #             index = list_Title.index(b)
+    #
+    #         point = list_Data[index]  # 根据锚点的数据，确认行数
+    #
+    #         # target_column = 2
+    #
+    #         count = 2
+    #         for row in sheet.iter_rows(min_row=2, values_only=True):
+    #             if str(row[target_column - 1]) == target_name:
+    #                 # 更新整行数据
+    #                 new_data = (information_edit[0], information_edit[1], information_edit[2], information_edit[3],
+    #                             information_edit[4], information_edit[5])  # 新的整行数据作为元组
+    #                 i = 1
+    #                 for col, data in enumerate(information_edit, start=0):  # 修改整行数据
+    #                     cell = sheet.cell(row=count, column=i)
+    #                     cell.value = data
+    #                     i += 1
+    #                 break  # 找到匹配行后跳出循环
+    #             count += 1
+    #
+    #         workbook.save(path)
+    #     except Exception as e:
+    #         self.open_and_close_txt(e)
+
+    # 下面这个function和create_new_folder一起调用，是对人员信息的添加
+    def import_member_information(self, member_list):
+        try:
+            name = os.path.join(self.currentPath, self.excel_name)
+            workbook = openpyxl.load_workbook(name)
+            sheet = workbook.active
+            new_row = sheet.max_row + 1
+            for col, data in enumerate(member_list, start=1):
+                sheet.cell(row=new_row, column=col, value=data)
+            workbook.save(name)
+        except Exception as e:
+            self.open_and_close_txt(e)
+
+    def edit_member_information(self, information_edit):
+        # print(information_edit)
+        try:
+            path = os.getcwd() + "\\data\\人员信息统计.xlsx"
+            workbook = openpyxl.load_workbook(path)
+            sheet = workbook.active
+            target_name = str(information_edit[1])
+            # print(type(target_name))
+            target_column = 2
+            count = 2
+            for row in sheet.iter_rows(min_row=2, values_only=True):
+                if str(row[target_column - 1]) == target_name:
+                    # 更新整行数据
+                    new_data = (information_edit[0], information_edit[1], information_edit[2], information_edit[3],
+                                information_edit[4], information_edit[5])  # 新的整行数据作为元组
+                    i = 1
+                    for col, data in enumerate(information_edit, start=0):  # 修改整行数据
+                        cell = sheet.cell(row=count, column=i)
+                        cell.value = data
+                        i += 1
+                    break  # 找到匹配行后跳出循环
+                count += 1
+
+            workbook.save(path)
+        except Exception as e:
+            self.open_and_close_txt(e)
+
+    def search_member_information(self, label):
+        try:
+            path = os.getcwd() + "\\data\\人员信息统计.xlsx"
+            workbook = openpyxl.load_workbook(path)
+            sheet = workbook.active
+
+            target_value = label
+            target_column = "B"
+
+            target_row = None
+            for row in sheet.iter_rows(min_row=2, max_row=sheet.max_row, min_col=2, max_col=2):
+                if row[0].value == target_value:
+                    target_row = row[0].row
+                    break
+            if target_row is not None:
+                row_data = [cell.value for cell in sheet[target_row]]
+
+                return row_data
+            else:
+                print("Target value not found in the specified column.")
+            pass
+        except Exception as e:
+            self.open_and_close_txt(e)
+
 
 if __name__ == "__main__":
     # startEvent=eventKeyboard()
@@ -909,6 +1070,12 @@ if __name__ == "__main__":
     # time.sleep(10)
     # print(keyTest.statusGet())
     # keyTest.terminate()
-    con=mouse_control()
+    # con=mouse_control()
     # con.move_and_press_mouse(636,21)
-
+    # page_title = ["2023年8月部落战统计PAGE"]
+    # page_title = ["这只是一个测试"]
+    # list_Title = ["t1",'t2','t3','t4','t5','t6','t7']
+    # list_Data = [1,2,3,4,5,6,7]
+    test = edit_excel()
+    test.edit_member_information(["55555","luohaochong",23333,4,5,"F"])
+    # test.new_data_excel(member_list=["2333","luohaochong", 1, 0, 1,"T"],mod=1)
