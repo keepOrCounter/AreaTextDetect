@@ -1032,9 +1032,11 @@ class edit_excel():
             target_column = "B"
 
             target_row = None
-            for row in sheet.iter_rows(min_row=2, max_row=sheet.max_row, min_col=2, max_col=2):
-                if row[0].value == target_value:
-                    target_row = row[0].row
+
+            for row in sheet.iter_rows(min_row=2, max_row=sheet.max_row, min_col=sheet[target_column].column,
+                                       max_col=sheet[target_column].column):
+                if row[1].value == target_value:
+                    target_row = row[1].row
                     break
             if target_row is not None:
                 row_data = [cell.value for cell in sheet[target_row]]
@@ -1079,3 +1081,4 @@ if __name__ == "__main__":
     test = edit_excel()
     test.edit_member_information(["55555","luohaochong",23333,4,5,"F"])
     # test.new_data_excel(member_list=["2333","luohaochong", 1, 0, 1,"T"],mod=1)
+
