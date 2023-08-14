@@ -773,6 +773,25 @@ class OCRController():
 
 
 class edit_excel():
+    """
+    1. read_npy(): 读取npy文件，npy文件内为每个page的title，请不要直接打开该文件进行修改。
+    2. save_title(): 存入npy文件
+    3. new_data_excel(page_title=[], list_Title=[], list_Data=[], member_list=[], mod=0): 进行模式选择
+    默认模式为mod=0，即进行”x月_部落战.xlsx“的存入数据,只填写 page_title, list_Title, list_Data 这三个参数;
+    当mod=1, 即进行"人员信息统计.xlsx"的存入数据的操作,只填写 member_list和 mod=1 。
+    4. open_and_close_txt(): 该函数为try, except, 将报错信息填入txt中。
+    5. create_new_folder(),create_new_excel(),create_and_import_sheet()已经集成到了new_data_excel()中，无需
+    调用 (mod=0)。
+    6. edit_sheet对部落战excel的操作, 未完成
+    7. import_member_information(), 已经集成到new_data_excel()中,(mod=1)
+    8. edit_member_information(information_edit), 对人员信息进行修改，只填入一个list，注意需要一一对应，并且其中标签
+    元素不能被修改。
+    9. search_member_information(label)，通过标签来搜索人员全部信息。
+
+
+
+    """
+
     def __init__(self) -> None:
         self.currentPath = os.getcwd()
         self.title_list = []
@@ -878,17 +897,6 @@ class edit_excel():
 
             wb = openpyxl.load_workbook(file_path)  # 展开合并单元格
             ws = wb.active
-            print("chaifen")
-            title_column = 0
-            # while ws[openpyxl.utils.get_column_letter(1 + title_column * 7) + str(1)].value is not None:
-            #     start_row = 1
-            #     end_row = 1
-            #     start_column = title_column
-            #     end_column = 7 + title_column * 7
-            #     ws.unmerge_cells(start_row=start_row, end_row=end_row, start_column=start_column,
-            #                    end_column=end_column)
-            #     title_column += 1
-            # print("jiesu")
 
             if page_title[0] not in self.title_list:  # title_list是page的标题
                 self.title_list.append(page_title[0])
@@ -897,16 +905,11 @@ class edit_excel():
                 for i in range(0, len(list_Title)):
                     ws[openpyxl.utils.get_column_letter(start_column + i) + str(actual_page_title_row)] = page_title[0]
                     ws[openpyxl.utils.get_column_letter(start_column + i) + str(actual_list_title_row)] = list_Title[i]
-
-
-
             else:
-                print(1)
                 page_number = self.title_list.index((page_title[0]))
                 start_column = 7 * page_number + 1
             count = 1
             #  判断一行的第一个cell是否为空，如果不是则count加一
-            print(2)
             while ws[
                 openpyxl.utils.get_column_letter(start_column) + str(actual_list_title_row + count)].value is not None:
                 # print(ws[openpyxl.utils.get_column_letter(start_column) + str(actual_list_title_row + count)].value)
@@ -917,14 +920,11 @@ class edit_excel():
 
                     break
                 count = count + 1
-            print(3)
             #  从这一行的第一个数值开始填写
             for i in range(0, len(list_Data)):
                 # print(list_Data[i])
                 ws[openpyxl.utils.get_column_letter(start_column + i) + str(actual_list_title_row + count)] \
                     = list_Data[i]
-            print(4)
-
             title_column = 0
             while ws[openpyxl.utils.get_column_letter(1 + title_column * 7) + str(1)].value is not None:
                 start_row = 1
@@ -937,9 +937,7 @@ class edit_excel():
 
             wb.save(file_path)
             self.save_title(self.title_list, npy_path)
-
-
-
+            wb.close()
         except Exception as e:
             self.open_and_close_txt(e)
 
@@ -992,9 +990,11 @@ class edit_excel():
             for col, data in enumerate(member_list, start=1):
                 sheet.cell(row=new_row, column=col, value=data)
             workbook.save(name)
+            workbook.close()
         except Exception as e:
             self.open_and_close_txt(e)
 
+    # 进行人员信息修改
     def edit_member_information(self, information_edit):
         # print(information_edit)
         try:
@@ -1019,6 +1019,7 @@ class edit_excel():
                 count += 1
 
             workbook.save(path)
+            workbook.close()
         except Exception as e:
             self.open_and_close_txt(e)
 
@@ -1040,14 +1041,30 @@ class edit_excel():
                     break
             if target_row is not None:
                 row_data = [cell.value for cell in sheet[target_row]]
-
+                workbook.close()
                 return row_data
             else:
                 print("Target value not found in the specified column.")
-            pass
+                workbook.close()
         except Exception as e:
             self.open_and_close_txt(e)
 
+    def delete_member_information(self, label):
+        try:
+            path = os.getcwd() + "\\data\\人员信息统计.xlsx"
+            workbook = openpyxl.load_workbook(path)
+            sheet = workbook.active
+            data_to_delete = label
+            for row in sheet.iter_rows(min_row=2, min_col=2, max_col=2):
+                for cell in row:
+                    if cell.value == data_to_delete:
+                        # 找到要删除的数据所在的行
+                        sheet.delete_rows(cell.row)
+                        break  # 删除完毕，结束查找
+            workbook.save(path)
+            workbook.close()
+        except Exception as e:
+            self.open_and_close_txt(e)
 
 if __name__ == "__main__":
     # startEvent=eventKeyboard()
@@ -1079,6 +1096,6 @@ if __name__ == "__main__":
     # list_Title = ["t1",'t2','t3','t4','t5','t6','t7']
     # list_Data = [1,2,3,4,5,6,7]
     test = edit_excel()
-    test.edit_member_information(["55555","luohaochong",23333,4,5,"F"])
+    test.delete_member_information("luohaochong")
     # test.new_data_excel(member_list=["2333","luohaochong", 1, 0, 1,"T"],mod=1)
 
