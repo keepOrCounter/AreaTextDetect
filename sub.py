@@ -369,6 +369,16 @@ class eventMouse():
             self.activeFlag1 = newFlag  # 检测点击的flag
             self.activeFlag2 = newFlag  # 检测移动的flag
             self.begin = time.time()
+            
+    def restart(self):
+        self.DetectedMouseXPos = -1
+        self.DetectedMouseYPos = -1
+
+        self.DetectedRightMouseXPos = -1
+        self.DetectedRightMouseYPos = -1
+
+        self.MotionMouseXPos = -1
+        self.MotionMouseYPos = -1
 
 
 class windowsUI():
@@ -402,23 +412,28 @@ class windowsUI():
             "2000": Screen shot mode
             "1010": behaviour recording panel
             "3000": show result
-            "3010": show message box and wait for user to choose
+            "4000": execute command
     """
 
     def __init__(self, override=False, alpha=0.8, bgColor="black", screenShot=-1, \
                  width=-1, height=-1, positionX=0, positionY=0, listener: eventMouse = None) -> None:
         # self.__timeList=[time.time(),0]
-        self.test = False # enable test code
-        self.testNum = 0
+        self.test = True # enable test code
+        self.testNum = 3
         
         self.listener = eventMouse()
         self.keyBoardInterrupt = eventKeyboard()
         self.screenShot = screenShot
         self.screen = screeninfo.get_monitors()[0]
         # print("22222222222222222222222333333333333333333333")
-        self.mainPanelButtons = ({"Recognition Area Record": [1100], "Setting": [1101], "next page": [1102], "testRecord": [1103]},
-                                {"Mouse Click": [1110], "Mouse Hold": [1111], "Mouse Move": [1112], "Scorlling": [1113],\
-                                    "Text Recognize": [1114], "Loop": [1115], "Standby": [1116]})
+        self.mainPanelButtons = ({"Recognition Area Record": [1100], "Execute Recorded": [1101],\
+            "Setting": [1102], "next page": [1103], "testRecord": [1104]},
+                {"Mouse Click": [1110], "Mouse Hold": [1111], "Mouse Move": [1112], \
+                    "Scorlling": [1113],"Text Recognize": [1114], "Loop": [1115], \
+                        "Standby": [1116],"Save record": [1117], "Back to home page": [1118]},
+                {"Back to home page": [4100]})
+        
+        self.description = {2010:"leftClick"}
         # Store the buttons on main Panel and their status ID
         self.currentButton: list[tkinter.Button] = []
         self.currentLabel = []
@@ -461,6 +476,9 @@ class windowsUI():
         IOController = mouse_control()
         self.userInteraction = UserBehaviourController(IOController, self.listener, self.ocr,\
             self.dbManagement)
+        
+        self.recordPointer = len(self.userInteraction.recoredBehaviours)
+        self.executePointer = 0
 
         if self.screenShot == 1:
             self.__num = 6
@@ -483,6 +501,9 @@ class windowsUI():
                 self.width = int(self.__root.winfo_screenwidth() / 5)
             if height == -1:
                 self.height = int(self.width * 16 / 10)
+                
+            self.windowSize["root"][0] = self.width
+            self.windowSize["root"][1] = self.height
             # print(self.width,self.height)
             self.layOutController()
         self.__root.overrideredirect(override)
@@ -502,53 +523,78 @@ class windowsUI():
 
         self.__root.mainloop()
 
-    def layOutController(self, mode="root", view=0, lastmode = None) -> None:
-        counter = 0
-        buttonNum = len(self.mainPanelButtons[view].keys())
-        if mode == "root":
-            self.widgetsCleaner(self.currentButton, self.currentLabel)
+    def layOutController(self, mode="root", view=0, lastmode = None, windows = "root") -> None:
+        if windows == "root":
+            counter = 0
+            buttonNum = len(self.mainPanelButtons[view].keys())
+            if mode == "root":
+                self.widgetsCleaner(self.currentButton, self.currentLabel)
+                self.width, self.height, self.positionX, self.positionY = self.windowSize[mode]
 
-        elif mode == "record":
-            self.widgetsCleaner(self.currentButton, self.currentLabel)
-            print(self.currentButton)
-            # for x in range(len(self.currentButton)):
-            #     self.currentButton[x].destroy()
-            
-            self.windowSize[lastmode] = []  # back up the size of root window
-            self.windowSize[lastmode].append(self.width)
-            self.windowSize[lastmode].append(self.height)
-            self.windowSize[lastmode].append(self.positionX)
-            self.windowSize[lastmode].append(self.positionY)
-            
-            self.width = int(self.__root.winfo_screenwidth() / 5)
-            self.height = int(self.width * 2 / 1)
-            self.positionX = 50
-            self.positionY = 50
-            
+
+                self.__root.resizable(0, 0)
+
+            elif mode == "record":
+                self.widgetsCleaner(self.currentButton, self.currentLabel)
+                print(self.currentButton)
+                # for x in range(len(self.currentButton)):
+                #     self.currentButton[x].destroy()
+
+                self.windowSize[lastmode] = []  # back up the size of root window
+                self.windowSize[lastmode].append(self.width)
+                self.windowSize[lastmode].append(self.height)
+                self.windowSize[lastmode].append(self.positionX)
+                self.windowSize[lastmode].append(self.positionY)
+
+                self.width = int(self.__root.winfo_screenwidth() / 5)
+                self.height = int(self.width * 2 / 1)
+                self.positionX = 50
+                self.positionY = 50
+
+
+                self.__root.resizable(0, 0)
+
+            elif mode == "executeList":
+                self.widgetsCleaner(self.currentButton, self.currentLabel)
+
+                self.windowSize[lastmode] = []  # back up the size of root window
+                self.windowSize[lastmode].append(self.width)
+                self.windowSize[lastmode].append(self.height)
+                self.windowSize[lastmode].append(self.positionX)
+                self.windowSize[lastmode].append(self.positionY)
+
+                self.width = int(self.__root.winfo_screenwidth() / 5)
+                self.height = int(self.width * 2 / 1)
+                self.positionX = 50
+                self.positionY = 50
+
             self.__root.geometry("{0}x{1}+{2}+{3}" \
                 .format(self.width, self.height, self.positionX, self.positionY))
-            
-            self.__root.resizable(0, 0)
-            
-            
-        for x in self.mainPanelButtons[view].keys():# place buttons
-            counter += 1
-            tem = self.__lambdaCreater(self.mainPanelButtons[view][x][0])
-            print(self.mainPanelButtons[view][x][0])
-            self.currentButton.append(tkinter.Button(self.__root, text=x, command=tem))
-            font = Font(font=self.currentButton[-1]["font"])  # get font information
-            lineHeight = font.metrics("linespace")  # calculate hieght and weidth by font information
-            lineWidth = font.measure(x)
-            # print(lineHeight,lineWidth)
-            # print()
-#
-            self.currentButton[-1].place(x=(self.width - lineWidth) / 2,
-                                         y=counter * self.height / (buttonNum + 1) - lineHeight / 2)
+
+            for x in self.mainPanelButtons[view].keys():# place buttons
+                counter += 1
+                tem = self.__lambdaCreater(self.mainPanelButtons[view][x][0])
+                print(self.mainPanelButtons[view][x][0])
+                self.currentButton.append(tkinter.Button(self.__root, text=x, command=tem))
+                font = Font(font=self.currentButton[-1]["font"])  # get font information
+                lineHeight = font.metrics("linespace")  # calculate hieght and weidth by font information
+                lineWidth = font.measure(x)
+                # print(lineHeight,lineWidth)
+                # print()
+#   
+                self.currentButton[-1].place(x=(self.width - lineWidth) / 2,
+                                             y=counter * self.height / (buttonNum + 1) - lineHeight / 2)
+        
+        else:
+            if self.__subWindows == None:
+                self.subWindowCreater(int(self.__root.winfo_screenwidth() / 5), int(self.width * 2 / 1),\
+                    x = int(self.__root.winfo_screenwidth() - self.__root.winfo_screenwidth() / 5), \
+                        y = 50)
 
     def __lambdaCreater(self, x):  # create lambda function for button, prevent shollow copy
         return lambda: self.Start(x)
 
-    def subWindowCreater(self, height, weight, lastMode = "root", x = 100, y = 100, \
+    def subWindowCreater(self, width, height, lastMode = "root", x = 100, y = 100, \
         listener = "None", alphaValue = 0.8, bgColor = "black"):
         
         self.__subWindows = tkinter.Toplevel()  # set up sub window
@@ -558,7 +604,7 @@ class windowsUI():
         self.windowSize[lastMode].append(self.positionX)
         self.windowSize[lastMode].append(self.positionY)
         
-        self.width = weight
+        self.width = width
         self.height = height
         self.positionX = x
         self.positionY = y
@@ -601,6 +647,7 @@ class windowsUI():
         self.__num = 6
         self.canvasPlace(target="sub")
 
+        self.listener.restart()
         self.screenShot = 1
         print("Screenshoter setted up")
         if self.listener == None:
@@ -612,10 +659,16 @@ class windowsUI():
         print(status)
         # print("Start:",self.statusID)
         if status == 1100:  #
-            self.statusID = 1010
+            self.recordPointer = len(self.userInteraction.recoredBehaviours)
             self.layOutController("record", 1, "root")
+            self.statusID = 1010
             
-        elif status == 1103:
+        elif status == 1101:
+            print(self.mainPanelButtons)
+            self.layOutController("executeList", 2, "root")
+            self.statusID = 4000
+            
+        elif status == 1104:
             self.screenShotCreation()
             # self.subWindows.append(windowsUI(True,0.5,"black",listener=mouseL,screenShot=3))
             # print("!!!!!!!!!!!!!!!!!!")
@@ -625,12 +678,32 @@ class windowsUI():
             
         elif status == 1110:
             self.messageBox = showinfo("RseMessager", "Please click what you would like us to\
-                click after pressing 'ok'. This message could be close in setting panel.")
-            if self.listener == None:
-                self.listener = eventMouse()
-                self.listener.StartListener()
+click after pressing 'ok'. This message could be close in setting panel.")
+            self.listener.restart()
             self.statusID = 2010
-        
+            
+        elif status == 1117:
+            self.recordPointer = len(self.userInteraction.recoredBehaviours)
+            if len(self.mainPanelButtons[2].keys()) == 0: # add button to execute panel
+                self.mainPanelButtons[2]["1"] = [4100]
+            else:
+                self.mainPanelButtons[2][str(int(self.mainPanelButtons[2].keys()[-1]) + 1)] = \
+                    [self.mainPanelButtons[2][self.mainPanelButtons[2].keys()[-1]][0] + 1]
+                
+            self.layOutController(lastmode = "record")
+            self.messageBox = showinfo("RseMessager", "operation recorded!")
+            self.statusID = 1000
+            
+        elif status == 1118:
+            self.userInteraction.delRecord()
+            self.recordPointer = len(self.userInteraction.recoredBehaviours)
+            
+            self.layOutController(lastmode = "record")
+            self.statusID = 1000
+            
+        elif 4200> status >= 4100:
+            self.executePointer = 0
+            self.statusID = 4200 + (status % 4100)
         
     def keeper(self) -> None:
         # print("ID:",self.screenShot)
@@ -774,6 +847,7 @@ class windowsUI():
             self.recoredArea.clear()
             
         elif len(self.recoredArea) > 0 and self.testNum == 3 and self.test: # test
+            print("----------------------")
             tem = self.recoredArea.pop()
             text = self.ocr.areTextTransfer(tem)
             # textBoxes = self.ocr.textboxSeekerTrainer(tem, 50)
@@ -801,6 +875,7 @@ class windowsUI():
                     print(transformed)
                 self.widgetsCleaner(self.__canvas, self.__subWindows)
                 self.__rec.clear()
+                self.width, self.height, self.positionX, self.positionY = self.windowSize["root"]
                 self.__root.attributes("-alpha", self.alpha)
                 self.counter += 1
                 
@@ -809,7 +884,12 @@ class windowsUI():
         elif self.statusID == 2010:
             clickedX, clickedY = self.listener.mouseGet("left")
             if clickedX != -1 and clickedY != -1:
-                self.UserBehaviourController
+                print(clickedX, clickedY)
+                self.userInteraction.actionRecord(self.description[self.statusID],\
+                    (clickedX, clickedY), self.recordPointer)
+                
+                print(self.userInteraction.recoredBehaviours)
+                self.statusID = 1010
                 
         elif self.statusID == 3000:
             if self.keyBoardInterrupt.statusGet() == 2:
@@ -824,8 +904,15 @@ class windowsUI():
                 
                 self.statusID = 1000
                 
-        elif self.statusID == 3010:
-            pass
+        elif 5000 > self.statusID >= 4200:
+            self.__root.attributes("-alpha", 0)
+            command, param = self.userInteraction.actionExcute(self.statusID % 4200, self.executePointer)
+            command(*param)
+            self.executePointer += 1
+            if self.executePointer >= len(self.userInteraction.recoredBehaviours[self.statusID % 4200]):
+                self.__root.attributes("-alpha", self.alpha)
+                self.executePointer = 0
+                self.statusID = 4000
         
     
     def widgetsCleaner(self, *arrayLike:Iterable) -> None:
@@ -841,7 +928,6 @@ class windowsUI():
     def drawer(self) -> int:
         if self.listener != None:
 
-            
 
             if self.screenShot == 1 and self.__num > 0:  # 1是截图功能的id，number是多少个画了多少个矩形。
                 temx, temy = self.listener.mouseGet("left")  # 鼠标的绝对坐标。
@@ -853,7 +939,7 @@ class windowsUI():
                 if self.x == -10 or self.y == -10:  # prevent first click detection
                     self.x = -1
                     self.y = -1
-                elif temx != self.x or temy != self.y:  # 防止长度和宽度为0的矩形。
+                elif (temx != self.x or temy != self.y) and (temx != -1 and temy != self.y):  # 防止长度和宽度为0的矩形。
                     print("click:", temx, temy)
                     self.x, self.y = temx, temy
                     self.__counter += 1  # 初始是0，每点击一次加1。
@@ -1445,9 +1531,8 @@ class UserBehaviourController():
         self.behavioursInterpreter = {"leftClick":mouseCon.move_and_press_mouse}
         
         
-        
     def actionRecord(self, action:str, param, actionID = -1, edit = -1):
-        if actionID == -1 or actionID > self.recoredBehaviours:
+        if actionID == -1 or actionID >= len(self.recoredBehaviours):
             self.recoredBehaviours.append([])
             actionID = -1
         
@@ -1461,6 +1546,9 @@ class UserBehaviourController():
         return self.behavioursInterpreter[self.recoredBehaviours[actionID][step][0]], \
             self.recoredBehaviours[actionID][step][1]
         
+        
+    def delRecord(self, actionID = -1):
+        self.recoredBehaviours.pop(actionID)
 
 
 if __name__ == "__main__":
