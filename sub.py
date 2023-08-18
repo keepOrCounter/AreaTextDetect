@@ -1,5 +1,8 @@
+# -*- coding: utf-8 -*-
 import math
 import copy
+import openpyxl
+import pandas as pd
 import pynput
 import screeninfo
 import time
@@ -12,10 +15,11 @@ import pyautogui
 import cv2
 from paddleocr import PaddleOCR
 import os
+import re
 from sklearn.cluster import KMeans
 from collections.abc import Iterable
 from tkinter.messagebox import *
-
+from tkinter import ttk, RIGHT, Y, LEFT
 
 class eventKeyboard():
     """
@@ -411,8 +415,11 @@ class windowsUI():
             "1103": Start up screen shot
             "2000": Screen shot mode
             "1010": behaviour recording panel
+            "1020": click setting panel
+            "1030-1099": choose available button
             "3000": show result
             "4000": execute command
+            "5000": back up status for recording
     """
 
     def __init__(self, override=False, alpha=0.8, bgColor="black", screenShot=-1, \
@@ -431,12 +438,18 @@ class windowsUI():
                 {"Mouse Click": [1110], "Mouse Hold": [1111], "Mouse Move": [1112], \
                     "Scorlling": [1113],"Text Recognize": [1114], "Loop": [1115], \
                         "Standby": [1116],"Save record": [1117], "Back to home page": [1118]},
-                {"Back to home page": [4100]})
+                {"Back to home page": [4100]}, 
+                {"record by coordinate": [1120],"click on a button": [1121],"back": [1122]}, 
+                {"back": [1130]})
         
-        self.description = {2010:"leftClick"}
+        self.description = {2010:"leftClick", 1131: "clickOnButton"}
         # Store the buttons on main Panel and their status ID
         self.currentButton: list[tkinter.Button] = []
         self.currentLabel = []
+        
+        self.currentButtonSubWin: list[tkinter.Button] = []
+        self.currentLabelSubWin = []
+        
         self.currentOtherComponents = []
 
         self.statusID = 1000  # globel status flag
@@ -463,12 +476,22 @@ class windowsUI():
         self.__counter = 0  # status id for drawer function
         self.counter = 0
         self.__root = tkinter.Tk()
-        self.windowSize = {"root": [width, height, positionX, positionY], "screenShoter": [0, 0, 0, 0]}  # all type of window size
+        self.windowSize = {"root": [width, height, positionX, positionY], "screenShoter": \
+            [0, 0, 0, 0], "record": [0,0,0,0]}  # all type of window size
 
         self.width = width  # current use width and height
         self.height = height
         self.bgColor = bgColor
         self.alpha = alpha
+        
+        self.scroller = None
+        self.mylistBox = None
+        
+        # testButton = tkinter.Button(self.__root, text="tester")
+        # font = Font(testButton["font"])  # get font information
+        # self.grid = font.metrics("linespace")  # calculate hieght and weidth by font information
+        # # lineWidth = font.measure(x)
+        # testButton.destroy()
         
         self.positionX = positionX
         self.positionY = positionY
@@ -528,7 +551,12 @@ class windowsUI():
             counter = 0
             buttonNum = len(self.mainPanelButtons[view].keys())
             if mode == "root":
-                self.widgetsCleaner(self.currentButton, self.currentLabel)
+                self.widgetsCleaner(self.currentButton, self.currentLabel, self.currentButtonSubWin, \
+                    self.currentLabelSubWin, self.scroller, self.mylistBox)
+                if self.__subWindows != None:
+                    self.__subWindows.destroy()
+                    self.__subWindows = None
+                    
                 self.width, self.height, self.positionX, self.positionY = self.windowSize[mode]
 
 
@@ -557,7 +585,35 @@ class windowsUI():
             elif mode == "executeList":
                 self.widgetsCleaner(self.currentButton, self.currentLabel)
 
-                self.windowSize[lastmode] = []  # back up the size of root window
+                self.windowSize[lastmode] = []  # back up the size of last window
+                self.windowSize[lastmode].append(self.width)
+                self.windowSize[lastmode].append(self.height)
+                self.windowSize[lastmode].append(self.positionX)
+                self.windowSize[lastmode].append(self.positionY)
+
+                self.width = int(self.__root.winfo_screenwidth() / 5)
+                self.height = int(self.width * 2 / 1)
+                self.positionX = 50
+                self.positionY = 50
+                
+            elif mode == "clickRecord":
+                self.widgetsCleaner(self.currentButton, self.currentLabel)
+
+                self.windowSize[lastmode] = []  # back up the size of last window
+                self.windowSize[lastmode].append(self.width)
+                self.windowSize[lastmode].append(self.height)
+                self.windowSize[lastmode].append(self.positionX)
+                self.windowSize[lastmode].append(self.positionY)
+
+                self.width = int(self.__root.winfo_screenwidth() / 5)
+                self.height = int(self.width * 2 / 1)
+                self.positionX = 50
+                self.positionY = 50
+                
+            elif mode == "UIClick":
+                self.widgetsCleaner(self.currentButton, self.currentLabel)
+
+                self.windowSize[lastmode] = []  # back up the size of last window
                 self.windowSize[lastmode].append(self.width)
                 self.windowSize[lastmode].append(self.height)
                 self.windowSize[lastmode].append(self.positionX)
@@ -585,24 +641,22 @@ class windowsUI():
                 self.currentButton[-1].place(x=(self.width - lineWidth) / 2,
                                              y=counter * self.height / (buttonNum + 1) - lineHeight / 2)
         
-        else:
-            if self.__subWindows == None:
-                self.subWindowCreater(int(self.__root.winfo_screenwidth() / 5), int(self.width * 2 / 1),\
-                    x = int(self.__root.winfo_screenwidth() - self.__root.winfo_screenwidth() / 5), \
-                        y = 50)
+
 
     def __lambdaCreater(self, x):  # create lambda function for button, prevent shollow copy
         return lambda: self.Start(x)
 
     def subWindowCreater(self, width, height, lastMode = "root", x = 100, y = 100, \
-        listener = "None", alphaValue = 0.8, bgColor = "black"):
+        listener = "None", alphaValue = 0.8, bgColor = "black", scrollBar = False, backup = True):
         
         self.__subWindows = tkinter.Toplevel()  # set up sub window
-        self.windowSize[lastMode] = []  # back up the size of last window
-        self.windowSize[lastMode].append(self.width)
-        self.windowSize[lastMode].append(self.height)
-        self.windowSize[lastMode].append(self.positionX)
-        self.windowSize[lastMode].append(self.positionY)
+        self.__subWindows.title("recorded operations")
+        if backup:
+            self.windowSize[lastMode] = []  # back up the size of last window
+            self.windowSize[lastMode].append(self.width)
+            self.windowSize[lastMode].append(self.height)
+            self.windowSize[lastMode].append(self.positionX)
+            self.windowSize[lastMode].append(self.positionY)
         
         self.width = width
         self.height = height
@@ -615,6 +669,17 @@ class windowsUI():
                                    .format(self.width, self.height, x, y))
         self.__subWindows.configure(bg=bgColor)
 
+        if scrollBar:
+            self.scroller = ttk.Scrollbar(self.__subWindows)  #设置窗口滚动条
+            self.scroller.pack(side = RIGHT, fill = Y)  #设置窗口滚动条位置
+            
+            self.mylistBox = tkinter.Listbox(self.__subWindows, yscrollcommand = self.scroller.set, \
+                width=self.width, bg = bgColor, fg = "white")  #创建列表框
+
+            
+            self.mylistBox.pack( side = LEFT , fill="both")  
+            self.scroller.config( command = self.mylistBox.yview )  
+        
         if listener == "mouse" and self.listener != None:
             self.listener = eventMouse()
             self.listener.StartListener()
@@ -660,7 +725,13 @@ class windowsUI():
         # print("Start:",self.statusID)
         if status == 1100:  #
             self.recordPointer = len(self.userInteraction.recoredBehaviours)
+            print(self.recordPointer)
+            print(self.userInteraction.recoredBehaviours)
             self.layOutController("record", 1, "root")
+            if self.__subWindows == None:
+                self.subWindowCreater(int(self.__root.winfo_screenwidth() / 6), int(self.width * 2 / 1),\
+                    x = int(self.__root.winfo_screenwidth() - self.__root.winfo_screenwidth() / 5), \
+                        y = 50, scrollBar = True, backup = False)
             self.statusID = 1010
             
         elif status == 1101:
@@ -673,22 +744,27 @@ class windowsUI():
             # self.subWindows.append(windowsUI(True,0.5,"black",listener=mouseL,screenShot=3))
             # print("!!!!!!!!!!!!!!!!!!")
             self.__root.attributes("-alpha", 0)
+            # if self.__subWindows != None:
+            #     self.__subWindows.attributes("-alpha", 0)
             self.statusID = 2000
             # print("Start:",self.statusID)
             
         elif status == 1110:
-            self.messageBox = showinfo("RseMessager", "Please click what you would like us to\
-click after pressing 'ok'. This message could be close in setting panel.")
-            self.listener.restart()
-            self.statusID = 2010
+            self.layOutController("clickRecord", 3, "record")
+            self.statusID = 1020
+            
+        elif status == 1116:
+            pass
             
         elif status == 1117:
             self.recordPointer = len(self.userInteraction.recoredBehaviours)
-            if len(self.mainPanelButtons[2].keys()) == 0: # add button to execute panel
-                self.mainPanelButtons[2]["1"] = [4100]
+            self.userInteraction.oldPointer = len(self.userInteraction.recoredBehaviours)
+            if len(self.mainPanelButtons[2].keys()) == 1: # add button to execute panel
+                self.mainPanelButtons[2]["1"] = [4101]
             else:
-                self.mainPanelButtons[2][str(int(self.mainPanelButtons[2].keys()[-1]) + 1)] = \
-                    [self.mainPanelButtons[2][self.mainPanelButtons[2].keys()[-1]][0] + 1]
+                self.mainPanelButtons[2][str(int(list(self.mainPanelButtons[2].keys())[-1]) + 1)] = \
+                    [self.mainPanelButtons[2][list(self.mainPanelButtons[2].keys())[-1]][0] + 1]
+            print(self.mainPanelButtons)
                 
             self.layOutController(lastmode = "record")
             self.messageBox = showinfo("RseMessager", "operation recorded!")
@@ -701,9 +777,48 @@ click after pressing 'ok'. This message could be close in setting panel.")
             self.layOutController(lastmode = "record")
             self.statusID = 1000
             
-        elif 4200> status >= 4100:
+        elif status == 1120:
+            self.messageBox = showinfo("RseMessager", "Please click what you would like us to\
+click after pressing 'ok'. This message could be close in setting panel.")
+            self.__root.attributes("-alpha", 0)
+            if self.__subWindows != None:
+                self.__subWindows.attributes("-alpha", 0)
+            self.listener.restart()
+            self.statusID = 2010
+            
+        elif status == 1121:
+            fileList = self.dbManagement.UIImageList()
+            # print(fileList)
+            self.mainPanelButtons[4].clear()
+            self.mainPanelButtons[4]["back"] = [1130]
+            for x in range(len(fileList)):
+                self.mainPanelButtons[4]["button. "+fileList[x]] = [1130 + x +1]
+            self.layOutController("UIClick", 4, "clickRecord")
+            self.statusID = 1030
+            
+        elif status == 1122:
+            self.layOutController("record", 1, "clickRecord")
+            self.statusID = 1010
+            
+        elif status == 1130:
+            self.layOutController("clickRecord", 3, "UIClick")
+            self.statusID = 1020
+            
+        elif 2000>status >= 1131:
+            fileName = list(self.mainPanelButtons[4].keys())[status % 1130][8:]
+            image = cv2.imread(self.dbManagement.currentPath + "\\UI\\" + fileName, flags=1)
+            self.userInteraction.actionRecord(self.description[1131],\
+                (image, (0,0,self.screen.width, self.screen.height)), self.recordPointer)
+            self.shownListManagement("add", self.description[1131]+": " + fileName)
+            
+        elif status == 4100:
+            self.layOutController(lastmode = "record")
+            self.statusID = 1000
+            
+        elif 4200> status >= 4101:
             self.executePointer = 0
             self.statusID = 4200 + (status % 4100)
+            
         
     def keeper(self) -> None:
         # print("ID:",self.screenShot)
@@ -877,19 +992,27 @@ click after pressing 'ok'. This message could be close in setting panel.")
                 self.__rec.clear()
                 self.width, self.height, self.positionX, self.positionY = self.windowSize["root"]
                 self.__root.attributes("-alpha", self.alpha)
+                # if self.__subWindows != None:
+                #     self.__subWindows.attributes("-alpha", self.alpha)
                 self.counter += 1
                 
                 self.statusID = 1000
                 
         elif self.statusID == 2010:
+            # print(self.userInteraction.recoredBehaviours)
             clickedX, clickedY = self.listener.mouseGet("left")
             if clickedX != -1 and clickedY != -1:
                 print(clickedX, clickedY)
                 self.userInteraction.actionRecord(self.description[self.statusID],\
                     (clickedX, clickedY), self.recordPointer)
+                self.shownListManagement("add", self.description[self.statusID]+": "+\
+                        str(clickedX)+","+str(clickedY))
                 
                 print(self.userInteraction.recoredBehaviours)
-                self.statusID = 1010
+                self.__root.attributes("-alpha", self.alpha)
+                if self.__subWindows != None:
+                    self.__subWindows.attributes("-alpha", self.alpha)
+                self.statusID = 1020
                 
         elif self.statusID == 3000:
             if self.keyBoardInterrupt.statusGet() == 2:
@@ -901,29 +1024,57 @@ click after pressing 'ok'. This message could be close in setting panel.")
                 self.widgetsCleaner(self.__canvas, self.__subWindows)
                 self.__rec.clear()
                 self.__root.attributes("-alpha", self.alpha)
+                if self.__subWindows != None:
+                    self.__subWindows.attributes("-alpha", self.alpha)
                 
                 self.statusID = 1000
                 
-        elif 5000 > self.statusID >= 4200:
+        elif 5000 > self.statusID >= 4201:
             self.__root.attributes("-alpha", 0)
-            command, param = self.userInteraction.actionExcute(self.statusID % 4200, self.executePointer)
-            command(*param)
-            self.executePointer += 1
-            if self.executePointer >= len(self.userInteraction.recoredBehaviours[self.statusID % 4200]):
+            if self.__subWindows != None:
+                self.__subWindows.attributes("-alpha", 0)
+                
+            print(self.userInteraction.recoredBehaviours)
+            print(len(self.userInteraction.recoredBehaviours[self.statusID % 4201]))
+            print(self.executePointer)
+            
+            if len(self.userInteraction.recoredBehaviours) == 0 or self.executePointer >= \
+                len(self.userInteraction.recoredBehaviours[self.statusID % 4201]):
+                    
                 self.__root.attributes("-alpha", self.alpha)
+                if self.__subWindows != None:
+                    self.__subWindows.attributes("-alpha", self.alpha)
                 self.executePointer = 0
                 self.statusID = 4000
+            else:
+                command, param = self.userInteraction.actionExcute(self.statusID % 4201, self.executePointer)
+                command(*param)
+                self.executePointer += 1
         
     
     def widgetsCleaner(self, *arrayLike:Iterable) -> None:
         for x in arrayLike:
             if isinstance(x, Iterable):
                 for y in x:
-                    y.destroy()
+                    if y != None:
+                        y.destroy()
                 x.clear()
             else:
-                x.destroy()
+                if x != None:
+                    x.destroy()
     
+    def shownListManagement(self, mode:str, newData:str, indexTo = -1):
+        if mode == "add":
+            if indexTo == -1:
+                self.mylistBox.insert(tkinter.END, str(self.mylistBox.size() + 1)+". "+newData)
+            else:
+                self.mylistBox.insert(indexTo, newData)
+        elif mode == "del":
+            if indexTo == -1:
+                self.mylistBox.delete(tkinter.END)
+            else:
+                self.mylistBox.delete(indexTo)
+        
 
     def drawer(self) -> int:
         if self.listener != None:
@@ -1041,6 +1192,19 @@ class mouse_control():
         mouse_time = distance / speed
         print(mouse_time)
         pyautogui.moveTo(x_position, y_position, mouse_time)
+        
+    def clickOnButton(self, image, region: tuple[int]):
+    
+        image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+        help_pos = pyautogui.locateOnScreen(image_rgb,confidence=0.6,region=region, minSearchTime = 1) #region中的参数为xy起始点，宽度和高度
+        print("----------------")
+        print(help_pos)
+        if help_pos != None:
+            print(help_pos)
+            goto_pos = pyautogui.center(help_pos) # 找到传回图片的中心点,并传回坐标
+            self.move_and_press_mouse(goto_pos.x, goto_pos.y)
+            print(goto_pos)
 
 
 class OCRController():
@@ -1496,6 +1660,8 @@ class OCRController():
 class edit_excel():
     def __init__(self) -> None:
         self.currentPath = os.getcwd()
+        self.title_list = []
+        self.excel_name = ""
 
     def OCRModelDataSaver(self, centroids:np.ndarray, data:np.ndarray, \
         modelID:np.ndarray, relativeDistance:list) ->None :
@@ -1521,6 +1687,284 @@ class edit_excel():
         
         print("loaded:", inCodeFile)
         return inCodeFile
+    
+    def filT(self,tem)->bool:
+        return os.path.isfile(self.currentPath+"\\UI\\"+tem)
+    
+    def UIImageList(self) -> list[str]:
+        if not os.path.isdir(self.currentPath + "\\UI"):
+            os.makedirs(self.currentPath + "\\UI")
+            
+        return list(filter(self.filT,os.listdir(self.currentPath+"\\UI")))
+
+    def read_npy(self, path):
+        if os.path.exists(path):
+
+            the_title_list_np = np.load(path)
+            the_title_list = list(the_title_list_np)
+            return the_title_list
+        else:
+            the_title_list = []
+            return the_title_list
+
+    def save_title(self, title, path):
+        title_np = np.array(title)
+        np.save(path, title_np)
+
+    def new_data_excel(self, page_title=[], list_Title=[], list_Data=[], member_list=[], mod=0):
+        try:
+            if mod == 0:
+                self.create_new_folder()
+                self.create_new_excel(0)
+                self.create_and_import_sheet(page_title, list_Title, list_Data)
+            elif mod == 1:
+                self.create_new_folder()
+                self.create_new_excel(1)
+                self.import_member_information(member_list)
+        except Exception as e:
+            self.open_and_close_txt(e)
+
+    # 打开日志并且填入错误信息
+    def open_and_close_txt(self, e):
+        localDate = re.sub(r"[ :]+", "-", str(time.asctime(time.localtime(time.time()))))
+        f3 = open("log.txt", "a")
+        f3.write(localDate + ": " + str(e) + "\n")
+        f3.close()
+
+    # 下面三个function要一起调用才是某月数据
+    # 创建文件夹（数据库）
+    def create_new_folder(self):
+        try:
+            if not os.path.isdir(self.currentPath + "\\data"):
+                os.makedirs(self.currentPath + "\\data")
+                self.currentPath = self.currentPath + "\\data"
+            else:
+                self.currentPath = self.currentPath + "\\data"
+        except Exception as e:
+            self.open_and_close_txt(e)
+            self.currentPath = self.currentPath + "\\data"
+
+    # name是新excel的名字，请包含完整信息，比如“xxxx.xlsx”，mod默认为0
+    def create_new_excel(self, mod=0):
+        try:
+            if mod == 0:
+                current_timestamp = time.time()
+                current_time = time.localtime(current_timestamp)
+                # 提取当前月份
+                current_month = current_time.tm_mon
+                name = str(current_month) + "月_部落战.xlsx"
+                file_path = os.path.join(self.currentPath, name)
+                if os.path.exists(file_path):  # 判断该excel是否存在于这个文件夹中
+                    self.excel_name = name
+                    print("已经存在")
+                else:
+                    df = pd.DataFrame()
+                    df.to_excel(file_path, index=False)
+                    self.excel_name = name
+            elif mod == 1:
+                name = "人员信息统计.xlsx"
+                file_path = os.path.join(self.currentPath, name)
+                if os.path.exists(file_path):  # 判断该excel是否存在于这个文件夹中
+                    self.excel_name = name
+                    print("已经存在")
+                else:
+                    workbook = openpyxl.Workbook()
+                    sheet = workbook.active
+                    sheet['A1'] = '昵称'
+                    sheet['B1'] = '标签'
+                    sheet['C1'] = '加入'
+                    sheet['D1'] = '最近退出'
+                    sheet['E1'] = '差值'
+                    sheet['F1'] = '常驻认证T/F'
+                    workbook.save(file_path)
+                    self.excel_name = name
+        except Exception as e:
+            self.open_and_close_txt(e)
+
+    # 导入数据
+    def create_and_import_sheet(self, page_title, list_Title, list_Data):
+        try:
+            file_path = os.path.join(self.currentPath, self.excel_name)
+            npy_path = os.path.join(self.currentPath, self.excel_name + ".npy")
+            # print(self.currentPath)
+            print("excel name is: " + self.excel_name)
+            self.title_list = self.read_npy(npy_path)
+
+            start_column = 0
+            start_column_letter = ""
+            actual_page_title_row = 1  # page 的名字的行数
+            actual_list_title_row = 2  # 数据的名字的行数
+
+            wb = openpyxl.load_workbook(file_path)  # 展开合并单元格
+            ws = wb.active
+            print("chaifen")
+            title_column = 0
+            # while ws[openpyxl.utils.get_column_letter(1 + title_column * 7) + str(1)].value is not None:
+            #     start_row = 1
+            #     end_row = 1
+            #     start_column = title_column
+            #     end_column = 7 + title_column * 7
+            #     ws.unmerge_cells(start_row=start_row, end_row=end_row, start_column=start_column,
+            #                    end_column=end_column)
+            #     title_column += 1
+            # print("jiesu")
+
+            if page_title[0] not in self.title_list:  # title_list是page的标题
+                self.title_list.append(page_title[0])
+                page_number = self.title_list.index(page_title[0])
+                start_column = 7 * page_number + 1  # 开始列名的数字
+                for i in range(0, len(list_Title)):
+                    ws[openpyxl.utils.get_column_letter(start_column + i) + str(actual_page_title_row)] = page_title[0]
+                    ws[openpyxl.utils.get_column_letter(start_column + i) + str(actual_list_title_row)] = list_Title[i]
+
+
+
+            else:
+                print(1)
+                page_number = self.title_list.index((page_title[0]))
+                start_column = 7 * page_number + 1
+            count = 1
+            #  判断一行的第一个cell是否为空，如果不是则count加一
+            print(2)
+            while ws[
+                openpyxl.utils.get_column_letter(start_column) + str(actual_list_title_row + count)].value is not None:
+                # print(ws[openpyxl.utils.get_column_letter(start_column) + str(actual_list_title_row + count)].value)
+                if ws[openpyxl.utils.get_column_letter(start_column) + str(actual_list_title_row + count)].value == \
+                        list_Data[0]:
+                    # print(count)
+                    ws.insert_rows(actual_list_title_row + count)
+
+                    break
+                count = count + 1
+            print(3)
+            #  从这一行的第一个数值开始填写
+            for i in range(0, len(list_Data)):
+                # print(list_Data[i])
+                ws[openpyxl.utils.get_column_letter(start_column + i) + str(actual_list_title_row + count)] \
+                    = list_Data[i]
+            print(4)
+
+            title_column = 0
+            while ws[openpyxl.utils.get_column_letter(1 + title_column * 7) + str(1)].value is not None:
+                start_row = 1
+                end_row = 1
+                start_column = title_column * 7 + 1
+                end_column = 7 + title_column * 7
+                ws.merge_cells(start_row=start_row, end_row=end_row, start_column=start_column, end_column=end_column)
+
+                title_column += 1
+
+            wb.save(file_path)
+            self.save_title(self.title_list, npy_path)
+
+
+
+        except Exception as e:
+            self.open_and_close_txt(e)
+
+    # 编辑数据
+    # def edit_sheet(self, excel_name, page_title, list_Title, list_Data):
+    #     try:
+    #         path = os.getcwd() + "\\data\\" + excel_name
+    #         workbook = openpyxl.load_workbook(path)
+    #
+    #         sheet = workbook.active
+    #         page_name = str(page_title[0])
+    #         index = 0
+    #
+    #         a = "昵称"
+    #         b = "标签"
+    #         if b in list_Title:  # 确认锚点
+    #             index = list_Title.index(a)
+    #         elif a in list_Title:
+    #             index = list_Title.index(b)
+    #
+    #         point = list_Data[index]  # 根据锚点的数据，确认行数
+    #
+    #         # target_column = 2
+    #
+    #         count = 2
+    #         for row in sheet.iter_rows(min_row=2, values_only=True):
+    #             if str(row[target_column - 1]) == target_name:
+    #                 # 更新整行数据
+    #                 new_data = (information_edit[0], information_edit[1], information_edit[2], information_edit[3],
+    #                             information_edit[4], information_edit[5])  # 新的整行数据作为元组
+    #                 i = 1
+    #                 for col, data in enumerate(information_edit, start=0):  # 修改整行数据
+    #                     cell = sheet.cell(row=count, column=i)
+    #                     cell.value = data
+    #                     i += 1
+    #                 break  # 找到匹配行后跳出循环
+    #             count += 1
+    #
+    #         workbook.save(path)
+    #     except Exception as e:
+    #         self.open_and_close_txt(e)
+
+    # 下面这个function和create_new_folder一起调用，是对人员信息的添加
+    def import_member_information(self, member_list):
+        try:
+            name = os.path.join(self.currentPath, self.excel_name)
+            workbook = openpyxl.load_workbook(name)
+            sheet = workbook.active
+            new_row = sheet.max_row + 1
+            for col, data in enumerate(member_list, start=1):
+                sheet.cell(row=new_row, column=col, value=data)
+            workbook.save(name)
+        except Exception as e:
+            self.open_and_close_txt(e)
+
+    def edit_member_information(self, information_edit):
+        # print(information_edit)
+        try:
+            path = os.getcwd() + "\\data\\人员信息统计.xlsx"
+            workbook = openpyxl.load_workbook(path)
+            sheet = workbook.active
+            target_name = str(information_edit[1])
+            # print(type(target_name))
+            target_column = 2
+            count = 2
+            for row in sheet.iter_rows(min_row=2, values_only=True):
+                if str(row[target_column - 1]) == target_name:
+                    # 更新整行数据
+                    new_data = (information_edit[0], information_edit[1], information_edit[2], information_edit[3],
+                                information_edit[4], information_edit[5])  # 新的整行数据作为元组
+                    i = 1
+                    for col, data in enumerate(information_edit, start=0):  # 修改整行数据
+                        cell = sheet.cell(row=count, column=i)
+                        cell.value = data
+                        i += 1
+                    break  # 找到匹配行后跳出循环
+                count += 1
+
+            workbook.save(path)
+        except Exception as e:
+            self.open_and_close_txt(e)
+
+    def search_member_information(self, label):
+        try:
+            path = os.getcwd() + "\\data\\人员信息统计.xlsx"
+            workbook = openpyxl.load_workbook(path)
+            sheet = workbook.active
+
+            target_value = label
+            target_column = "B"
+
+            target_row = None
+            for row in sheet.iter_rows(min_row=2, max_row=sheet.max_row, min_col=sheet[target_column].column,
+                                       max_col=sheet[target_column].column):
+                if row[1].value == target_value:
+                    target_row = row[1].row
+                    break
+            if target_row is not None:
+                row_data = [cell.value for cell in sheet[target_row]]
+
+                return row_data
+            else:
+                print("Target value not found in the specified column.")
+            pass
+        except Exception as e:
+            self.open_and_close_txt(e)
 
 
 class UserBehaviourController():
@@ -1528,7 +1972,9 @@ class UserBehaviourController():
         dbManagement:edit_excel) -> None:
         
         self.recoredBehaviours = []
-        self.behavioursInterpreter = {"leftClick":mouseCon.move_and_press_mouse}
+        self.behavioursInterpreter = {"leftClick":mouseCon.move_and_press_mouse, "clickOnButton":\
+            mouseCon.clickOnButton}
+        self.oldPointer = len(self.recoredBehaviours)
         
         
     def actionRecord(self, action:str, param, actionID = -1, edit = -1):
@@ -1543,12 +1989,18 @@ class UserBehaviourController():
             self.recoredBehaviours[actionID][edit] = (action, param)
         
     def actionExcute(self, actionID:int, step = -1):
-        return self.behavioursInterpreter[self.recoredBehaviours[actionID][step][0]], \
-            self.recoredBehaviours[actionID][step][1]
+        if len(self.recoredBehaviours) > 0:
+            return self.behavioursInterpreter[self.recoredBehaviours[actionID][step][0]], \
+                self.recoredBehaviours[actionID][step][1]
         
         
-    def delRecord(self, actionID = -1):
-        self.recoredBehaviours.pop(actionID)
+    def delRecord(self, actionID = -1, newDataDel = True):
+        if newDataDel:
+            if len(self.recoredBehaviours) > 0 and len(self.recoredBehaviours) > self.oldPointer:
+                self.recoredBehaviours.pop(actionID)
+        else:
+            if len(self.recoredBehaviours) > 0:
+                self.recoredBehaviours.pop(actionID)
 
 
 if __name__ == "__main__":
