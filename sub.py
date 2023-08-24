@@ -13,8 +13,8 @@ from mss import mss
 from pynput.mouse import Controller, Button
 import numpy as np
 import pyautogui
-import cv2
-from paddleocr import PaddleOCR
+# import cv2
+# from paddleocr import PaddleOCR
 import os
 import re
 
