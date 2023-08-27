@@ -28,10 +28,10 @@ class eventKeyboard():
         invoke!
     NOTICE!!!  pressed(key) would check whether main program is down every 10 sec,
         to make it continous working, call activeFlagSet(newFlag=1) to reactive the working status.
-        
+
     StartListener(): start the listener, also safe for any unterminate listener.
     terminate(): end the listener
-    
+
     statusGet(): return listener status, 0 for initiated, 1 for started, >=2 for specific keys were pressed,
         -1 for terminated.
     """
@@ -196,7 +196,7 @@ class eventKeyboard():
             else:
                 self.activeFlag = -1
                 self.timeIntervalStart = time.time()
-        # if key == pynput.keyboard.Key.esc: 
+        # if key == pynput.keyboard.Key.esc:
         #     return False
 
         
@@ -245,10 +245,10 @@ class eventMouse():
         invoke!
     NOTICE!!!  clicked(x,y) and moving(x,y) would check whether main program is down every 10 sec,
         to make it continous working, call activeFlagSet(newFlag=1) to reactive the working status.
-        
+
     StartListener(): start the listeners.
     terminate(): end the listeners.
-    
+
     mouseGet(side): if side can be "left" or "right",return the x,y coordinate for last time mouse clicked
 
     motionGet(): return the x,y coordinate for last time mouse moved
@@ -388,7 +388,7 @@ class eventMouse():
 
 class windowsUI():
     """
-    class parameters: 
+    class parameters:
         `override`: self defined tk windows, only set true when using screenShot mode or message box mode
         `alpha`: visibility of root window
         `bgColor`: background color, only root windows
@@ -396,9 +396,9 @@ class windowsUI():
         width,height: size of root window
         positionX,positionY: x,y for top left of window
         `listener`: mouse listener
-        
+
         !!! Flag summary:
-        `self.statusID`: 
+        `self.statusID`:
             singel digit: the function ID for current view windows/panels
             ten digit: the view ID for current window/panel
             hundred digit: special digit repersent the main program status
@@ -409,7 +409,7 @@ class windowsUI():
                     second "1" means the button has pressed and wait for event function to handle
                     first "0" means first view of root window
                     second "0" means the the button to Start up screen shot is on first view of root window
-            
+
             detials:
             -1: standby flag
             "1100": record user behaviour
@@ -489,7 +489,6 @@ find out text boxes"],["Please choose one of model to filter out error location"
 
         self.testModelID = None
         self.testScrollingArea = {"top": 0, "left": 0, "width": 0, "height": 0}
-
         self.xRight = -1  # store mouse move coordinations
         self.yRight = -1
 
@@ -497,6 +496,7 @@ find out text boxes"],["Please choose one of model to filter out error location"
         self.__counter = 0  # status id for drawer function
         self.counter = -1
         self.__root = tkinter.Tk()
+
         self.windowSize = {"root": [width, height, positionX, positionY], "screenShoter": \
             [0, 0, 0, 0], "record": [0,0,0,0]}  # all type of window size
 
@@ -504,6 +504,7 @@ find out text boxes"],["Please choose one of model to filter out error location"
         self.height = height
         self.bgColor = bgColor
         self.alpha = alpha
+
         
         self.scroller = None
         self.mylistBox = None
@@ -513,7 +514,6 @@ find out text boxes"],["Please choose one of model to filter out error location"
         # self.grid = font.metrics("linespace")  # calculate hieght and weidth by font information
         # # lineWidth = font.measure(x)
         # testButton.destroy()
-        
         self.positionX = positionX
         self.positionY = positionY
         
@@ -834,7 +834,6 @@ find out text boxes"],["Please choose one of model to filter out error location"
 #   
                 self.currentButton[-1].place(x=(self.width - lineWidth) / 2,
                                              y=counter * self.height / (buttonNum + 1) - lineHeight / 2)
-        
 
 
     def __lambdaCreater(self, x):  # create lambda function for button, prevent shollow copy
@@ -856,7 +855,7 @@ find out text boxes"],["Please choose one of model to filter out error location"
         self.height = height
         self.positionX = x
         self.positionY = y
-        
+
         self.__subWindows.attributes("-alpha", alphaValue)
 
         self.__subWindows.geometry("{0}x{1}+{2}+{3}" \
@@ -877,9 +876,9 @@ find out text boxes"],["Please choose one of model to filter out error location"
         if listener == "mouse" and self.listener != None:
             self.listener = eventMouse()
             self.listener.StartListener()
-            
+
         self.__subWindows.resizable(0, 0)
-        
+
     def screenShotCreation(self, alphaValue=0.5, bgColor="black") -> None:
         """_summary_
 
@@ -1158,7 +1157,7 @@ the model would determine if this cut any text(you could test multiple area at t
             
         elif status == 6400:
             pass
-        
+
     def keeper(self) -> None:
         # print("ID:",self.screenShot)
         print("Status:", self.statusID)
@@ -1333,7 +1332,7 @@ the model would determine if this cut any text(you could test multiple area at t
             # print(text)
             
     def eventAction(self) -> None:
-        
+
         if self.statusID == 2000:
             if self.keyBoardInterrupt.statusGet() == 2:
                 # print("ssssssssssssssss",self.statusID)
@@ -1822,7 +1821,7 @@ class OCRController():
     def areTextTransfer(self, targetArea:dict, textPosition:list[dict] = [], match = False) -> list[str]:
         screen = np.array(self.sct.grab(targetArea))
         image_rgb = cv2.cvtColor(screen, cv2.COLOR_BGR2RGB)
-        
+
         result = self.ocr.ocr(image_rgb, cls=True)
         # print(result)
         txts = []
@@ -2265,6 +2264,7 @@ class edit_excel():
         self.title_list = []
         self.excel_name = ""
 
+
     def OCRModelDataSaver(self, centroids:np.ndarray, data:np.ndarray, \
         modelID:np.ndarray, relativeDistance:list) ->None :
         """
@@ -2436,7 +2436,6 @@ class edit_excel():
                 ws.merge_cells(start_row=start_row, end_row=end_row, start_column=start_column, end_column=end_column)
 
                 title_column += 1
-
             wb.save(file_path)
             self.save_title(self.title_list, npy_path)
             wb.close()
@@ -2476,7 +2475,6 @@ class edit_excel():
             wb.close()
         except Exception as e:
             self.open_and_close_txt(e)
-
 
 
 
