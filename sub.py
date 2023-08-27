@@ -2562,6 +2562,19 @@ class edit_excel():
             workbook.close()
         except Exception as e:
             self.open_and_close_txt(e)
+            
+    def allMemberLabel(self):
+        try:
+            path = os.getcwd() + "\\data\\人员信息统计.xlsx"
+            df = pd.read_excel(path)
+            print(df)
+            
+            return list(df["标签"])
+            
+        except Exception as e:
+            self.open_and_close_txt(e)
+        
+        
 
 class UserBehaviourController():
     def __init__(self, mouseCon:mouse_control, mouseDetect:eventMouse, OCRCon:OCRController, \
@@ -2628,7 +2641,9 @@ if __name__ == "__main__":
     # con.mouse.press(Button.left)
     # con.smooth(1913,195,500)
     # con.mouse.release(Button.left)
-    ocr=OCRController(os.getcwd())
-    text=ocr.textboxSeekerTrainer({"top": 0, "left": 0, "width": 1920, "height": 1080})
+    # ocr=OCRController(os.getcwd())
+    # text=ocr.textboxSeekerTrainer({"top": 0, "left": 0, "width": 1920, "height": 1080})
     # print(text)
-
+    test = edit_excel()
+    
+    print(test.allMemberLabel())
