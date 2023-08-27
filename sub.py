@@ -20,6 +20,7 @@ from sklearn.cluster import KMeans
 from collections.abc import Iterable
 from tkinter.messagebox import *
 from tkinter import ttk, RIGHT, Y, LEFT
+from sklearn.metrics import pairwise_distances as cdist
 
 class eventKeyboard():
     """
@@ -419,13 +420,14 @@ class windowsUI():
             "1030-1099": choose available button
             "3000": show result
             "4000": execute command
-            "5000": back up status for recording
+            "5000": standby config
+            "6000": loop config
     """
 
     def __init__(self, override=False, alpha=0.8, bgColor="black", screenShot=-1, \
                  width=-1, height=-1, positionX=0, positionY=0, listener: eventMouse = None) -> None:
         # self.__timeList=[time.time(),0]
-        self.test = True # enable test code
+        self.test = False # enable test code
         self.testNum = 3
         
         self.listener = eventMouse()
@@ -440,10 +442,20 @@ class windowsUI():
                         "Standby": [1116],"Save record": [1117], "Back to home page": [1118]},
                 {"Back to home page": [4100]}, 
                 {"record by coordinate": [1120],"click on a button": [1121],"back": [1122]}, 
-                {"back": [1130]}, {"confirm": [5100], "Cancel": [5101]})
-        self.mainPanelInput = ([],[],[],[],[],["Hours", "Minutes", "Seconds"])
+                {"back": [1130]}, {"wait by time counts": [5100], "wait until specific text show up": [5101], \
+                    "wait until spcific icon or button show up(recommend)": [5102], "back": [5103]}, \
+                {"confirm": [5110], "Cancel": [5111]}, {"back": [5120]}, {"Cancel": [6100]}, \
+                {"a Piece of text": [6110], "list of text": [6111], "Cancel": [6112]}, \
+                {"Cancel": [6120], "Set up new model": [6121]}, {"Cancel": [6300], \
+                    "Set up new model": [6301]}) # 11
+        self.mainPanelInput = ([],[],[],[],[],[],["Hours", "Minutes", "Seconds"],[],\
+            ["Loop time(-1 for infinite loop and will only stop by user interrupt)"], \
+                [],[],[]) # 11
+        self.mainPanelLabel = ([],[],[],[],[],[],[],[],[],[],["Please choose one of model to \
+find out text boxes"],["Please choose one of model to filter out error location"]) # 11
         
-        self.description = {2010:"leftClick", 1131: "clickOnButton"}
+        self.description = {2010:"leftClick", 1131: "clickOnButton", 5110:"timeWait", 5121: "iconDetection", \
+            6101:"loopController"}
         # Store the buttons on main Panel and their status ID
         self.currentButton: list[tkinter.Button] = []
         self.currentLabel = []
@@ -453,10 +465,13 @@ class windowsUI():
         self.currentLabelSubWin = []
         
         self.currentOtherComponents = []
+        
+        self.loopCounter = ([],[],[],[]) # index of loop back to, loop time, if finished loop
 
         self.statusID = 1000  # globel status flag
         self.__subWindows = None  # store windows created by event function Start()
         self.messageBox = None
+        self.screenShotor = None
 
         self.__rec = []  # store rectangle in canvas
         self.recoredArea = [] # store recorded screen shot area
@@ -464,6 +479,7 @@ class windowsUI():
         self.textAreUpperBound = self.screen.height
         self.textAreLowerBound = 0
         
+        self.sequencialCommand = []
         
         self.x = -10  # store mouse click coordinations
         self.y = -10
@@ -471,12 +487,15 @@ class windowsUI():
         self.dbManagement = edit_excel()
         self.ocr = OCRController(self.dbManagement.currentPath, self.dbManagement.OCRModelDataLoader())
 
+        self.testModelID = None
+        self.testScrollingArea = {"top": 0, "left": 0, "width": 0, "height": 0}
+
         self.xRight = -1  # store mouse move coordinations
         self.yRight = -1
 
         # self.__loopTime = 0  # use to count the time, 0.1s every loop
         self.__counter = 0  # status id for drawer function
-        self.counter = 0
+        self.counter = -1
         self.__root = tkinter.Tk()
         self.windowSize = {"root": [width, height, positionX, positionY], "screenShoter": \
             [0, 0, 0, 0], "record": [0,0,0,0]}  # all type of window size
@@ -498,9 +517,9 @@ class windowsUI():
         self.positionX = positionX
         self.positionY = positionY
         
-        IOController = mouse_control()
-        self.userInteraction = UserBehaviourController(IOController, self.listener, self.ocr,\
-            self.dbManagement)
+        self.IOController = mouse_control()
+        self.userInteraction = UserBehaviourController(self.IOController, self.listener, self.ocr,\
+            self.dbManagement, self)
         
         self.recordPointer = len(self.userInteraction.recoredBehaviours)
         self.executePointer = 0
@@ -553,9 +572,12 @@ class windowsUI():
             counter = 0
             buttonNum = len(self.mainPanelButtons[view].keys())
             buttonNum += len(self.mainPanelInput[view])
+            buttonNum += len(self.mainPanelLabel[view])
+            buttonStatus = [tkinter.NORMAL, tkinter.DISABLED]
+            buttonStatusSetup = []
             if mode == "root":
                 self.widgetsCleaner(self.currentButton, self.currentLabel, self.currentButtonSubWin, \
-                    self.currentLabelSubWin, self.scroller, self.mylistBox)
+                    self.currentLabelSubWin, self.scroller, self.mylistBox, self.currentInput)
                 if self.__subWindows != None:
                     self.__subWindows.destroy()
                     self.__subWindows = None
@@ -566,7 +588,7 @@ class windowsUI():
                 self.__root.resizable(0, 0)
 
             elif mode == "record":
-                self.widgetsCleaner(self.currentButton, self.currentLabel)
+                self.widgetsCleaner(self.currentButton, self.currentLabel, self.currentInput)
                 print(self.currentButton)
                 # for x in range(len(self.currentButton)):
                 #     self.currentButton[x].destroy()
@@ -586,7 +608,7 @@ class windowsUI():
                 self.__root.resizable(0, 0)
 
             elif mode == "executeList":
-                self.widgetsCleaner(self.currentButton, self.currentLabel)
+                self.widgetsCleaner(self.currentButton, self.currentLabel, self.currentInput)
 
                 self.windowSize[lastmode] = []  # back up the size of last window
                 self.windowSize[lastmode].append(self.width)
@@ -600,7 +622,7 @@ class windowsUI():
                 self.positionY = 50
                 
             elif mode == "clickRecord":
-                self.widgetsCleaner(self.currentButton, self.currentLabel)
+                self.widgetsCleaner(self.currentButton, self.currentLabel, self.currentInput)
 
                 self.windowSize[lastmode] = []  # back up the size of last window
                 self.windowSize[lastmode].append(self.width)
@@ -614,7 +636,21 @@ class windowsUI():
                 self.positionY = 50
                 
             elif mode == "UIClick":
-                self.widgetsCleaner(self.currentButton, self.currentLabel)
+                self.widgetsCleaner(self.currentButton, self.currentLabel, self.currentInput)
+
+                self.windowSize[lastmode] = []  # back up the size of last window
+                self.windowSize[lastmode].append(self.width)
+                self.windowSize[lastmode].append(self.height)
+                self.windowSize[lastmode].append(self.positionX)
+                self.windowSize[lastmode].append(self.positionY)
+
+                self.width = int(self.__root.winfo_screenwidth() / 5)
+                self.height = int(self.width * 2 / 1)
+                self.positionX = 50
+                self.positionY = 50
+                
+            elif mode == "standbyConfig":
+                self.widgetsCleaner(self.currentButton, self.currentLabel, self.currentInput)
 
                 self.windowSize[lastmode] = []  # back up the size of last window
                 self.windowSize[lastmode].append(self.width)
@@ -628,7 +664,7 @@ class windowsUI():
                 self.positionY = 50
                 
             elif mode == "timeWaitConfig":
-                self.widgetsCleaner(self.currentButton, self.currentLabel)
+                self.widgetsCleaner(self.currentButton, self.currentLabel, self.currentInput)
 
                 self.windowSize[lastmode] = []  # back up the size of last window
                 self.windowSize[lastmode].append(self.width)
@@ -637,11 +673,11 @@ class windowsUI():
                 self.windowSize[lastmode].append(self.positionY)
 
                 self.width = int(self.__root.winfo_screenwidth() / 5)
-                self.height = int(self.width * 16 / 10)
+                self.height = int(self.width * 13 / 10)
                 self.positionX = 50
                 self.positionY = 50
                 
-                for x in self.mainPanelInput[view]:# place buttons
+                for x in self.mainPanelInput[view]:# place input box
                     counter += 1
                     entry_var = tkinter.StringVar()
                     entry_var.set(x)
@@ -658,14 +694,138 @@ class windowsUI():
                     self.currentInput[-1].place(x=(self.width - lineWidth) / 2,
                                                  y=counter * self.height / (buttonNum + 1) - lineHeight / 2)
 
+            elif mode == "loopConfig":
+                self.widgetsCleaner(self.currentButton, self.currentLabel, self.currentInput)
+
+                self.windowSize[lastmode] = []  # back up the size of last window
+                self.windowSize[lastmode].append(self.width)
+                self.windowSize[lastmode].append(self.height)
+                self.windowSize[lastmode].append(self.positionX)
+                self.windowSize[lastmode].append(self.positionY)
+
+                self.width = int(self.__root.winfo_screenwidth() / 5)
+                self.height = int(self.width * 2 / 1)
+                self.positionX = 50
+                self.positionY = 50
+                
+                self.mainPanelButtons[view].clear()
+                self.mainPanelButtons[view]["Cancel"] = [6100]
+                
+                buttonStatusSetup.append(0)
+                for x in range(len(self.loopCounter)):
+                    if len(self.loopCounter[x]) == 0:
+                        self.mainPanelButtons[view]["Start Loop " + chr(65 + x)] = [6100 + x + 1]
+                        buttonStatusSetup.append(0)
+                    else:
+                        if self.loopCounter[x][2]:
+                            buttonStatusSetup.append(1)
+                        else:
+                            buttonStatusSetup.append(0)
+                        self.mainPanelButtons[view]["Stop Loop " + chr(65 + x)] = [6100 + x + 1]
+                buttonNum = len(self.mainPanelButtons[view].keys()) + len(self.mainPanelInput[view]) \
+                    + len(self.mainPanelLabel[view])
+                
+                for x in self.mainPanelInput[view]:# place input box
+                    counter += 1
+                    entry_var = tkinter.StringVar()
+                    entry_var.set(x)
+                    self.currentInput.append(tkinter.Entry(self.__root,width=int(self.width/12),\
+                        textvariable=entry_var))
+                    font = Font(font=self.currentInput[-1]["font"])  # get font information
+                    lineHeight = font.metrics("linespace")  # calculate hieght and weidth by font information
+                    lineWidth = font.measure("  "*int(self.width/12))
+                    print(self.width)
+                    print(lineHeight, lineWidth)
+                    # print(lineHeight,lineWidth)
+                    # print()
+                    #
+                    self.currentInput[-1].place(x=(self.width - lineWidth) / 2,
+                                                 y=counter * self.height / (buttonNum + 1) - lineHeight / 2)
+
+            elif mode == "textRecognizeConfig":
+                self.widgetsCleaner(self.currentButton, self.currentLabel, self.currentInput)
+
+                self.windowSize[lastmode] = []  # back up the size of last window
+                self.windowSize[lastmode].append(self.width)
+                self.windowSize[lastmode].append(self.height)
+                self.windowSize[lastmode].append(self.positionX)
+                self.windowSize[lastmode].append(self.positionY)
+
+                self.width = int(self.__root.winfo_screenwidth() / 5)
+                self.height = int(self.width * 2 / 1)
+                self.positionX = 50
+                self.positionY = 50
+                
+            elif mode == "textBoxesModelling":
+                self.widgetsCleaner(self.currentButton, self.currentLabel, self.currentInput)
+
+                self.windowSize[lastmode] = []  # back up the size of last window
+                self.windowSize[lastmode].append(self.width)
+                self.windowSize[lastmode].append(self.height)
+                self.windowSize[lastmode].append(self.positionX)
+                self.windowSize[lastmode].append(self.positionY)
+
+                self.width = int(self.__root.winfo_screenwidth() / 5)
+                self.height = int(self.width * 2 / 1)
+                self.positionX = 50
+                self.positionY = 50
+                
+                for x in self.mainPanelLabel[view]:# place buttons
+                    counter += 1
+                    self.currentLabel.append(tkinter.Label(self.__root, text=x, fg="white", bg="black"))
+
+                    font = Font(font=self.currentLabel[-1]["font"])  # get font information
+                    lineHeight = font.metrics("linespace")  # calculate hieght and weidth by font information
+                    lineWidth = font.measure(x)
+                    # print(lineHeight,lineWidth)
+                    # print()
+#       
+                    self.currentLabel[-1].place(x=(self.width - lineWidth) / 2,
+                                                 y=counter * self.height / (buttonNum + 1) - lineHeight / 2)
+
+            elif mode == "textSeeker":
+                self.widgetsCleaner(self.currentButton, self.currentLabel, self.currentInput)
+
+                self.windowSize[lastmode] = []  # back up the size of last window
+                self.windowSize[lastmode].append(self.width)
+                self.windowSize[lastmode].append(self.height)
+                self.windowSize[lastmode].append(self.positionX)
+                self.windowSize[lastmode].append(self.positionY)
+
+                self.width = int(self.__root.winfo_screenwidth() / 5)
+                self.height = int(self.width * 2 / 1)
+                self.positionX = 50
+                self.positionY = 50
+                
+                for x in self.mainPanelLabel[view]:# place buttons
+                    counter += 1
+                    self.currentLabel.append(tkinter.Label(self.__root, text=x, fg="white", bg="black"))
+
+                    font = Font(font=self.currentLabel[-1]["font"])  # get font information
+                    lineHeight = font.metrics("linespace")  # calculate hieght and weidth by font information
+                    lineWidth = font.measure(x)
+                    # print(lineHeight,lineWidth)
+                    # print()
+#       
+                    self.currentLabel[-1].place(x=(self.width - lineWidth) / 2,
+                                                 y=counter * self.height / (buttonNum + 1) - lineHeight / 2)
+
+
             self.__root.geometry("{0}x{1}+{2}+{3}" \
                 .format(self.width, self.height, self.positionX, self.positionY))
 
             for x in self.mainPanelButtons[view].keys():# place buttons
                 counter += 1
                 tem = self.__lambdaCreater(self.mainPanelButtons[view][x][0])
-                print(self.mainPanelButtons[view][x][0])
+                # print(self.mainPanelButtons[view][x][0])
                 self.currentButton.append(tkinter.Button(self.__root, text=x, command=tem))
+                if len(buttonStatusSetup) > 0:
+                    # print(counter)
+                    # print(buttonStatusSetup)
+                    # print(len(self.mainPanelInput[view]))
+                    # print(buttonStatusSetup[counter - len(self.mainPanelInput[view]) - 1])
+                    self.currentButton[-1].config(state=buttonStatus[buttonStatusSetup[counter - len(self.mainPanelInput[view]) - 1]])
+                    
                 font = Font(font=self.currentButton[-1]["font"])  # get font information
                 lineHeight = font.metrics("linespace")  # calculate hieght and weidth by font information
                 lineWidth = font.measure(x)
@@ -727,22 +887,22 @@ class windowsUI():
             alphaValue (int): the visibility of the screen shot window
             bgColor (str): allow for user to custom the back ground color
         """
-        self.__subWindows = tkinter.Toplevel()  # set up sub window
+        self.screenShotor = tkinter.Toplevel()  # set up sub window
         self.windowSize["root"] = []  # back up the size of root window
         self.windowSize["root"].append(self.width)
         self.windowSize["root"].append(self.height)
         self.windowSize["root"].append(self.positionX)
         self.windowSize["root"].append(self.positionY)
         
-        self.width = self.__subWindows.winfo_screenwidth()  # make it large as the screen
-        self.height = self.__subWindows.winfo_screenheight()
+        self.width = self.screenShotor.winfo_screenwidth()  # make it large as the screen
+        self.height = self.screenShotor.winfo_screenheight()
 
-        self.__subWindows.overrideredirect(True)  # remove tk default component(e.g. window close button)
-        self.__subWindows.attributes("-alpha", alphaValue)
+        self.screenShotor.overrideredirect(True)  # remove tk default component(e.g. window close button)
+        self.screenShotor.attributes("-alpha", alphaValue)
 
-        self.__subWindows.geometry("{0}x{1}+{2}+{3}" \
+        self.screenShotor.geometry("{0}x{1}+{2}+{3}" \
                                    .format(self.width, self.height, 0, 0))
-        self.__subWindows.configure(bg=bgColor)
+        self.screenShotor.configure(bg=bgColor)
         self.__num = 6
         self.canvasPlace(target="sub")
 
@@ -758,6 +918,7 @@ class windowsUI():
         print(status)
         # print("Start:",self.statusID)
         if status == 1100:  #
+            self.loopCounter = ([],[],[],[])
             self.recordPointer = len(self.userInteraction.recoredBehaviours)
             print(self.recordPointer)
             print(self.userInteraction.recoredBehaviours)
@@ -769,7 +930,7 @@ class windowsUI():
             self.statusID = 1010
             
         elif status == 1101:
-            print(self.mainPanelButtons)
+            # print(self.mainPanelButtons)
             self.layOutController("executeList", 2, "root")
             self.statusID = 4000
             
@@ -778,17 +939,25 @@ class windowsUI():
             # self.subWindows.append(windowsUI(True,0.5,"black",listener=mouseL,screenShot=3))
             # print("!!!!!!!!!!!!!!!!!!")
             self.__root.attributes("-alpha", 0)
-            # if self.__subWindows != None:
-            #     self.__subWindows.attributes("-alpha", 0)
-            self.statusID = 2000
+            if self.__subWindows != None:
+                self.__subWindows.attributes("-alpha", 0)
+            self.statusID = -1000
             # print("Start:",self.statusID)
             
         elif status == 1110:
             self.layOutController("clickRecord", 3, "record")
             self.statusID = 1020
             
+        elif status == 1114:
+            self.layOutController("textRecognizeConfig", 9, "record")
+            self.statusID = 6010
+            
+        elif status == 1115:
+            self.layOutController("loopConfig", 8, "record")
+            self.statusID = 6000
+            
         elif status == 1116:
-            self.layOutController("timeWaitConfig", 5, "record")
+            self.layOutController("standbyConfig", 5, "record")
             self.statusID = 5000
             
         elif status == 1117:
@@ -851,20 +1020,143 @@ click after pressing 'ok'. This message could be close in setting panel.")
             self.statusID = 1000
             
         elif 4200> status >= 4101:
+            self.counter = -1
             self.executePointer = 0
+            self.loopCounter = ([],[],[],[])
             self.statusID = 4200 + (status % 4100)
             
-            
         elif status == 5100:
-            result = []
-            for x in self.currentInput[5]:
-                tem = x.get()
+            self.layOutController("timeWaitConfig", 6, "standbyConfig")
+            self.statusID = 5010
+            
+        elif status == 5102:
+            fileList = self.dbManagement.UIImageList()
+            # print(fileList)
+            self.mainPanelButtons[7].clear()
+            self.mainPanelButtons[7]["back"] = [5120]
+            for x in range(len(fileList)):
+                self.mainPanelButtons[7]["button. "+fileList[x]] = [5120 + x +1]
+            self.layOutController("UIClick", 7, "standbyConfig")
+            self.statusID = 5020
+            
+        elif status == 5103:
+            self.layOutController("record", 1, "standbyConfig")
+            self.statusID = 1010
+            
+        elif status == 5110:
+            counter = 0
+            for x in range(len(self.currentInput)):
+                tem = self.currentInput[x].get()
                 if tem.isdigit():
-                    result.append(tem)
+                    counter += int(tem)*60**(2-x)
+            self.userInteraction.actionRecord(self.description[status],\
+                (counter,), self.recordPointer)
+            self.shownListManagement("add", self.description[status]+": " + str(counter) + "s")
+            self.layOutController("standbyConfig", 5, "timeWaitConfig")
+            self.statusID = 5000
+            
+        elif status == 5111:
+            self.layOutController("standbyConfig", 5, "timeWaitConfig")
+            self.statusID = 5000
+            
+        elif status == 5120:
+            self.layOutController("standbyConfig", 5, "UIClick")
+            self.statusID = 5000
+            
+        elif 6000 > status >=5121:
+            fileName = list(self.mainPanelButtons[7].keys())[status % 5120][8:]
+            image = cv2.imread(self.dbManagement.currentPath + "\\UI\\" + fileName, flags=1)
+            self.userInteraction.actionRecord(self.description[5121],\
+                (image, (0,0,self.screen.width, self.screen.height)), self.recordPointer)
+            self.shownListManagement("add", self.description[5121]+": " + fileName)
+        
+        elif status == 6100:
+            self.layOutController("record", 1, "loopConfig")
+            self.statusID = 1010
+        
+        elif 6104 >= status >=6101:
+            if len(self.loopCounter[status % 6101]) < 3:
+                tem = self.currentInput[0].get()
+                if tem.isdigit():
+                    counter = int(tem)
+
+                    self.loopCounter[status % 6101].clear()
+                    if self.recordPointer >= len(self.userInteraction.recoredBehaviours):
+                        self.loopCounter[status % 6101].append(0)
+                    else:
+                        self.loopCounter[status % 6101].append(len(self.userInteraction.recoredBehaviours\
+                            [self.recordPointer]))
+                        
+                    self.loopCounter[status % 6101].append(counter)
+                    self.loopCounter[status % 6101].append(False)
+
+                    self.shownListManagement("add", "Loop " + chr(65 + status % 6101)+ " Start")
+                    self.layOutController("record", 1, "loopConfig")
+                    self.statusID = 1010
                 else:
-                    result.append(0)
+                    self.messageBox = showinfo("RseMessager", "Please provide an integer")
+            else:
+                self.loopCounter[status % 6101][2] = True
                 
-        elif status == 5101:
+                self.userInteraction.actionRecord(self.description[6101],\
+                    (self.loopCounter[status % 6101][0], self.loopCounter[status % 6101][1], \
+                        status % 6101), self.recordPointer)
+                self.shownListManagement("add", "Loop " + chr(65 + status % 6101)+ " Stop at "\
+                    + str(self.loopCounter[status % 6101][1]) + " times")
+                self.layOutController("record", 1, "loopConfig")
+                self.statusID = 1010
+        
+        elif status == 6111:
+            self.messageBox = askquestion("RseMessager", "We need to set this up by following 3 steps:\n\
+1. choose or build up a model to find text boxes.\n2. choose or build up a model to make sure target\
+text are included by recognization area.\n3. test the result.\n Would you like to continue?")
+            print(self.messageBox)
+            if self.messageBox == "yes":
+                for x in range(len(list(self.ocr.modelID))):
+                    self.mainPanelButtons[10][str(self.ocr.modelID[x])] = [self.mainPanelButtons[10]\
+                        [list(self.mainPanelButtons[10].keys())[-1]][0] + 1]
+
+                self.layOutController("textBoxesModelling", 10, "record")
+                self.statusID = 6020
+                
+        elif 6200 > status >=6122:
+            self.testModelID = status % 6122
+            self.messageBox = showinfo("RseMessager", "Text boxes recognize model has been ready,\
+we would need to test this model worked with your circumstance. Please tell us \
+to area of the list after pressing 'ok'.(Press key 'alt+z' finish the step)")
+            self.screenShotCreation()
+            # self.subWindows.append(windowsUI(True,0.5,"black",listener=mouseL,screenShot=3))
+            # print("!!!!!!!!!!!!!!!!!!")
+            self.__root.attributes("-alpha", 0)
+            if self.__subWindows != None:
+                self.__subWindows.attributes("-alpha", 0)
+            self.statusID = 2000
+        
+        elif status == 6200:
+            for x in range(len(list(self.ocr.modelID))):
+                self.mainPanelButtons[11][str(self.ocr.modelID[x])] = [self.mainPanelButtons[11]\
+                    [list(self.mainPanelButtons[11].keys())[-1]][0] + 1]
+            self.layOutController("textSeeker", 11, "textBoxesModelling")
+            self.statusID = 6201
+            
+        elif status == 6202:
+            pass
+            
+        elif 6400 > status >= 6302:
+            self.testModelID = status % 6302
+            self.messageBox = showinfo("RseMessager", "Error location filtering model has been ready,\
+we would need to test this model worked with your circumstance. Please tell us arbitrary area \
+the model would determine if this cut any text(you could test multiple area at the same time). \
+(Press key 'alt+z' finish the step)")
+            self.screenShotCreation()
+            # self.subWindows.append(windowsUI(True,0.5,"black",listener=mouseL,screenShot=3))
+            # print("!!!!!!!!!!!!!!!!!!")
+            self.__root.attributes("-alpha", 0)
+            if self.__subWindows != None:
+                self.__subWindows.attributes("-alpha", 0)
+            self.statusID = 2001
+            
+        elif status == 6400:
             pass
         
     def keeper(self) -> None:
@@ -885,6 +1177,29 @@ click after pressing 'ok'. This message could be close in setting panel.")
 
             
     def tester(self):
+        if self.statusID == -1000:
+            if self.keyBoardInterrupt.statusGet() == 2:
+                # print("ssssssssssssssss",self.statusID)
+                self.x = -10
+                self.y = -10
+                self.screenShot = 2
+
+                for x in self.__rec:
+                    transformed = self.transform(x)
+                    # if self.counter == 0:
+                    #     self.textAreUpperBound = min(transformed["top"] , self.textAreUpperBound)
+                    #     self.textAreLowerBound = max(transformed["top"] + transformed["height"],\
+                    #         self.textAreLowerBound)
+                    # print(self.textAreUpperBound, self.textAreLowerBound)
+                    
+                    self.recoredArea.append(transformed)
+                    print(transformed)
+                self.widgetsCleaner(self.__canvas, self.screenShotor)
+                self.__rec.clear()
+                self.width, self.height, self.positionX, self.positionY = self.windowSize["root"]
+                
+                self.statusID = -1
+            
         if len(self.recoredArea) > 0 and self.testNum == 0 and self.test: # test
             tem = self.recoredArea.pop()
             # text=self.ocr.areTextTransfer(tem)
@@ -1011,10 +1326,11 @@ click after pressing 'ok'. This message could be close in setting panel.")
         elif len(self.recoredArea) > 0 and self.testNum == 3 and self.test: # test
             print("----------------------")
             tem = self.recoredArea.pop()
-            text = self.ocr.areTextTransfer(tem)
+            text = self.ocr.areTextTransfer(tem, textPosition= [{"top": 1058, "left": 1771, \
+                "width": 78, "height": 20}], match = True)
             # textBoxes = self.ocr.textboxSeekerTrainer(tem, 50)
 
-            print(text)
+            # print(text)
             
     def eventAction(self) -> None:
         
@@ -1027,25 +1343,165 @@ click after pressing 'ok'. This message could be close in setting panel.")
 
                 for x in self.__rec:
                     transformed = self.transform(x)
-                    if self.counter == 1:
+                    # if self.counter == 0:
+                    #     self.textAreUpperBound = min(transformed["top"] , self.textAreUpperBound)
+                    #     self.textAreLowerBound = max(transformed["top"] + transformed["height"],\
+                    #         self.textAreLowerBound)
+                    # print(self.textAreUpperBound, self.textAreLowerBound)
+                    
+                    self.recoredArea.append(transformed)
+                    print(transformed)
+                self.widgetsCleaner(self.__canvas, self.screenShotor)
+                self.__rec.clear()
+                self.width, self.height, self.positionX, self.positionY = self.windowSize["root"]
+                # self.__root.attributes("-alpha", self.alpha)
+                # if self.__subWindows != None:
+                #     self.__subWindows.attributes("-alpha", self.alpha)
+                # self.counter += 1
+                
+                self.statusID = -1
+                self.messageBox = showinfo("RseMessager", "Please check if the result looks \
+correct, please also clear the target area to ensure model could catch the right area.(Press key 'alt+z' finish the step)")
+                tem = self.recoredArea.pop() # Show result
+                # text=self.ocr.areTextTransfer(tem)
+                # textBoxes = self.ocr.textboxSeekerTrainer(tem, 50)
+                textBoxesParam = (tem, 3, self.testModelID, True)
+                self.sequencialCommand.append(copy.deepcopy(textBoxesParam))
+                
+                self.testScrollingArea = copy.deepcopy(tem)
+                self.textBoxes = self.ocr.textboxSeekerPredictor(tem, 3, self.testModelID, True)
+                self.screenShotCreation()
+                counter = 0
+                for x in self.textBoxes:
+                    leftX = (x["left"] * self.width) / self.screen.width  # 转换相对坐标。
+                    leftY = (x["top"] * self.height) / self.screen.height
+
+                    rightX = ((x["left"] + x["width"]) * self.width) / self.screen.width  # 转换相对坐标。
+                    rightY = ((x["top"] + x["height"]) * self.height) / self.screen.height
+                    if counter == 0:
+                        self.rectangleCreation(leftX, leftY, rightX, rightY, "crimson")
+                    elif counter == 1:
+                        self.rectangleCreation(leftX, leftY, rightX, rightY, "blue")
+                    else:
+                        self.rectangleCreation(leftX, leftY, rightX, rightY, "green")
+                    counter += 1
+                    if counter % 3 == 0:
+                        counter = 0
+                self.statusID = 3000
+                
+        elif self.statusID == 2001:
+            if self.keyBoardInterrupt.statusGet() == 2:
+                # print("ssssssssssssssss",self.statusID)
+                self.x = -10
+                self.y = -10
+                self.screenShot = 2
+
+                for x in self.__rec:
+                    transformed = self.transform(x)
+                    # if self.counter == 0:
+                    #     self.textAreUpperBound = min(transformed["top"] , self.textAreUpperBound)
+                    #     self.textAreLowerBound = max(transformed["top"] + transformed["height"],\
+                    #         self.textAreLowerBound)
+                    # print(self.textAreUpperBound, self.textAreLowerBound)
+                    
+                    self.recoredArea.append(transformed)
+                    print(transformed)
+                self.widgetsCleaner(self.__canvas, self.screenShotor)
+                self.__rec.clear()
+                self.width, self.height, self.positionX, self.positionY = self.windowSize["root"]
+                
+                self.statusID = -1
+                tem = copy.deepcopy(self.recoredArea)
+                
+                textBoxesParam = (tem, {"top": 0, "left": 0, "width": \
+                self.screen.width, "height": self.screen.height}, self.testModelID)
+                
+                self.sequencialCommand.append(copy.deepcopy(textBoxesParam))
+                
+                testResult = self.ocr.textLocationPredictor(tem, {"top": 0, "left": 0, "width": \
+                self.screen.width, "height": self.screen.height}, self.testModelID)
+                
+                if testResult:
+                    self.messageBox = askquestion("RseMessager", "Model determine the edges of target \
+area do not cut any text, it is a safe target area. Is it correct?")
+                else:
+                    self.messageBox = askquestion("RseMessager", "Model determine the edges of target \
+area cut some text. Is it correct?")
+                
+                if self.messageBox == "yes":
+                    pass
+                
+                self.recoredArea.clear()
+                
+                self.messageBox = showinfo("RseMessager", "Almost done! The model would try to \
+find out all target text, please tell us the target text of the first line.(Press key 'alt+z' finish the step)")
+                
+                self.screenShotCreation()
+                self.counter = 0
+                self.statusID = 2002
+                
+        elif self.statusID == 2002: # find out text
+            if self.keyBoardInterrupt.statusGet() == 2:
+                # print("ssssssssssssssss",self.statusID)
+                self.x = -10
+                self.y = -10
+                self.screenShot = 2
+                for x in self.__rec:
+                    transformed = self.transform(x)
+                    if self.counter == 0:
                         self.textAreUpperBound = min(transformed["top"] , self.textAreUpperBound)
                         self.textAreLowerBound = max(transformed["top"] + transformed["height"],\
                             self.textAreLowerBound)
                     print(self.textAreUpperBound, self.textAreLowerBound)
                     
                     self.recoredArea.append(transformed)
-                    print(transformed)
-                self.widgetsCleaner(self.__canvas, self.__subWindows)
+                
+                self.widgetsCleaner(self.__canvas, self.screenShotor)
                 self.__rec.clear()
                 self.width, self.height, self.positionX, self.positionY = self.windowSize["root"]
-                self.__root.attributes("-alpha", self.alpha)
-                # if self.__subWindows != None:
-                #     self.__subWindows.attributes("-alpha", self.alpha)
-                self.counter += 1
                 
-                self.statusID = 1000
+                self.statusID = -1
+                result = []
+                textBoxesParam = (self.recoredArea, self.textBoxes, {"top": 0, "left": 0, "width": \
+                    self.screen.width, "height": self.screen.height}, self.testModelID, "predict")
                 
-        elif self.statusID == 2010:
+                self.sequencialCommand.append(copy.deepcopy(textBoxesParam))
+                
+                for x in self.textBoxes:
+                    tem = copy.deepcopy(self.recoredArea)
+                    if len(self.ocr.relativeDistance[self.testModelID]) == 0:
+                        print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+                        result += self.ocr.textSeeker(tem, copy.deepcopy(x), {"top": 0, "left": 0, "width": \
+                            self.screen.width, "height": self.screen.height}, self.testModelID, "train", \
+                                self.textAreLowerBound - self.textAreUpperBound, self.textAreUpperBound, \
+                                    self.textAreLowerBound)
+                    else:
+                        print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+                        result += self.ocr.textSeeker(tem, copy.deepcopy(x), {"top": 0, "left": 0, "width": \
+                            self.screen.width, "height": self.screen.height}, self.testModelID, "predict")
+                
+                self.screenShotCreation()
+                counter = 0
+                for x in result:
+                    leftX = (x["left"] * self.width) / self.screen.width  # 转换相对坐标。
+                    leftY = (x["top"] * self.height) / self.screen.height
+
+                    rightX = ((x["left"] + x["width"]) * self.width) / self.screen.width  # 转换相对坐标。
+                    rightY = ((x["top"] + x["height"]) * self.height) / self.screen.height
+                    if counter == 0:
+                        self.rectangleCreation(leftX, leftY, rightX, rightY, "crimson")
+                    elif counter == 1:
+                        self.rectangleCreation(leftX, leftY, rightX, rightY, "blue")
+                    else:
+                        self.rectangleCreation(leftX, leftY, rightX, rightY, "green")
+                    counter += 1
+                    if counter % 3 == 0:
+                        counter = 0
+                        
+                textMatched = self.ocr.areTextTransfer(self.testScrollingArea, result, True)
+                print(textMatched)
+                self.statusID = 3001
+        elif self.statusID == 2010: # record click
             # print(self.userInteraction.recoredBehaviours)
             clickedX, clickedY = self.listener.mouseGet("left")
             if clickedX != -1 and clickedY != -1:
@@ -1061,22 +1517,47 @@ click after pressing 'ok'. This message could be close in setting panel.")
                     self.__subWindows.attributes("-alpha", self.alpha)
                 self.statusID = 1020
                 
-        elif self.statusID == 3000:
+        elif self.statusID == 3000: # stop showing result
             if self.keyBoardInterrupt.statusGet() == 2:
                 # print("ssssssssssssssss",self.statusID)
                 self.x = -10
                 self.y = -10
                 self.screenShot = 2
 
-                self.widgetsCleaner(self.__canvas, self.__subWindows)
+                self.widgetsCleaner(self.__canvas, self.screenShotor)
                 self.__rec.clear()
+                self.recoredArea.clear()
                 self.__root.attributes("-alpha", self.alpha)
                 if self.__subWindows != None:
                     self.__subWindows.attributes("-alpha", self.alpha)
                 
-                self.statusID = 1000
+                self.statusID = 6200
+                self.Start(6200)
                 
-        elif 5000 > self.statusID >= 4201:
+        elif self.statusID == 3001: # stop showing result
+            if self.keyBoardInterrupt.statusGet() == 2:
+                # print("ssssssssssssssss",self.statusID)
+                self.x = -10
+                self.y = -10
+                self.screenShot = 2
+
+                self.widgetsCleaner(self.__canvas, self.screenShotor)
+                self.__rec.clear()
+                self.recoredArea.clear()
+                self.__root.attributes("-alpha", self.alpha)
+                if self.__subWindows != None:
+                    self.__subWindows.attributes("-alpha", self.alpha)
+                
+                self.messageBox = askquestion("RseMessager", "Are the results correct?")
+                
+                if self.messageBox == "yes":
+                    self.dbManagement.OCRModelDataSaver(self.ocr.centroids,\
+                        self.ocr.data, self.ocr.modelID, self.ocr.relativeDistance)
+                
+                self.statusID = 6202
+                self.Start(6202)
+                
+        elif 5000 > self.statusID >= 4201: # execute recorded command
             self.__root.attributes("-alpha", 0)
             if self.__subWindows != None:
                 self.__subWindows.attributes("-alpha", 0)
@@ -1092,11 +1573,20 @@ click after pressing 'ok'. This message could be close in setting panel.")
                 if self.__subWindows != None:
                     self.__subWindows.attributes("-alpha", self.alpha)
                 self.executePointer = 0
+                self.loopCounter = ([],[],[],[])
                 self.statusID = 4000
             else:
                 command, param = self.userInteraction.actionExcute(self.statusID % 4201, self.executePointer)
                 command(*param)
                 self.executePointer += 1
+                
+            if self.keyBoardInterrupt.statusGet() == 2:
+                self.__root.attributes("-alpha", self.alpha)
+                if self.__subWindows != None:
+                    self.__subWindows.attributes("-alpha", self.alpha)
+                self.executePointer = 0
+                self.loopCounter = ([],[],[],[])
+                self.statusID = 4000
         
     
     def widgetsCleaner(self, *arrayLike:Iterable) -> None:
@@ -1122,6 +1612,30 @@ click after pressing 'ok'. This message could be close in setting panel.")
             else:
                 self.mylistBox.delete(indexTo)
         
+    def waitUntilIconDetected(self, image, region: tuple[int]):
+        try:
+            if not self.IOController.iconDetection(image, region):
+                self.executePointer -= 1
+        except Exception as e:
+            print("error occured, wait for a moment and try again.")
+            print(e)
+            self.executePointer -= 1
+            
+    def timeWait(self, timeCount:int):
+        if self.counter == -1:
+            self.counter = time.time()
+        if time.time() - self.counter < timeCount:
+            self.executePointer -= 1
+        else:
+            self.counter = -1
+
+    def loopController(self, loopBackTo:int, loopTime:int, loopID:int):
+        print(self.loopCounter)
+        if len(self.loopCounter[loopID]) == 0:
+            self.loopCounter[loopID].append(loopTime)
+        if self.loopCounter[loopID][0] > 0 or self.loopCounter[loopID][0] == -1:
+            self.executePointer = copy.deepcopy(loopBackTo) - 1
+            self.loopCounter[loopID][0] -= int(loopTime > 0)
 
     def drawer(self) -> int:
         if self.listener != None:
@@ -1159,7 +1673,7 @@ click after pressing 'ok'. This message could be close in setting panel.")
                         self.xRight, self.yRight = temx, temy  # 鼠标当前位置
                         self.rectangleConfigure(self.x, self.y, self.xRight, self.yRight, width=3)  # 更新矩阵
 
-        if self.x == 0 or self.y == 0:  # 退出
+        if self.x == 0 or self.y == 0:  # 紧急退出
             self.listener.terminate()
             self.__root.destroy()
             return -1
@@ -1169,7 +1683,7 @@ click after pressing 'ok'. This message could be close in setting panel.")
     def canvasPlace(self, positionX=0, positionY=0, highlightthickness=0, bgColor="black", target="root") -> None:
 
         if target == "sub":
-            self.__canvas = tkinter.Canvas(self.__subWindows, highlightthickness= \
+            self.__canvas = tkinter.Canvas(self.screenShotor, highlightthickness= \
                 highlightthickness, width=self.width, height=self.height, bg=bgColor)
         else:
             self.__canvas = tkinter.Canvas(self.__root, highlightthickness= \
@@ -1240,18 +1754,29 @@ class mouse_control():
         print(mouse_time)
         pyautogui.moveTo(x_position, y_position, mouse_time)
         
-    def clickOnButton(self, image, region: tuple[int]):
+    def clickOnButton(self, image, region: tuple[int]) -> None:
     
         image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
         help_pos = pyautogui.locateOnScreen(image_rgb,confidence=0.6,region=region, minSearchTime = 1) #region中的参数为xy起始点，宽度和高度
-        print("----------------")
-        print(help_pos)
+        # print("----------------")
+        # print(help_pos)
         if help_pos != None:
-            print(help_pos)
+            # print(help_pos)
             goto_pos = pyautogui.center(help_pos) # 找到传回图片的中心点,并传回坐标
             self.move_and_press_mouse(goto_pos.x, goto_pos.y)
-            print(goto_pos)
+            # print(goto_pos)
+            
+    def iconDetection(self, image, region: tuple[int]) -> bool:
+        image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+        help_pos = pyautogui.locateOnScreen(image_rgb,confidence=0.6,region=region, minSearchTime = 1) #region中的参数为xy起始点，宽度和高度
+        # print("----------------")
+        # print(help_pos)
+        if help_pos != None:
+            return True
+        else:
+            return False
 
 
 class OCRController():
@@ -1274,25 +1799,73 @@ class OCRController():
         self.relativeDistance = list(self.relativeDistance)
         
         self.screen = np.array([])
+        
+        arrivedResult = []
         # print(self.modelLabels, self.centroids, self.data ,self.modelID, self.relativeDistance)
         
-    def areTextTransfer(self, targetArea:dict) -> list[str]:
+    def __closest(self, a):
+        return np.argmin(a)
+    
+    def __calculate_overlap(self, box1, box2):
+        # Calculate the overlapping area between two text boxes
+        x1 = max(box1[0], box2[0])
+        y1 = max(box1[1], box2[1])
+        x2 = min(box1[2], box2[2])
+        y2 = min(box1[3], box2[3])
+
+        width = max(0, x2 - x1)
+        height = max(0, y2 - y1)
+
+        overlap_area = width * height
+        return overlap_area
+    
+    def areTextTransfer(self, targetArea:dict, textPosition:list[dict] = [], match = False) -> list[str]:
         screen = np.array(self.sct.grab(targetArea))
         image_rgb = cv2.cvtColor(screen, cv2.COLOR_BGR2RGB)
         
         result = self.ocr.ocr(image_rgb, cls=True)
+        # print(result)
         txts = []
         for x in result:
-            # boxes = [line[0] for line in x]
+            if match:
+                boxes = [line[0] for line in x]
             txts = [line[1][0] for line in x]
-            # scores = [line[1][1] for line in x]
-        # cv2.namedWindow("Hello", cv2.WINDOW_AUTOSIZE)
-        # cv2.imshow("Hello", screen)
-        # cv2.waitKey(0)
-        # end1=time.time()
+            
+        if match:
+            print(boxes)
+            print(textPosition)
+            print(">>>>>>>>>>>>>>>>>>>>")
+            matched_boxes = []
 
-        # print(pytesseract.get_languages(config=''))
-        # text = pytesseract.image_to_string(threshold_image, config=config)
+            for list_box in textPosition:
+                max_overlap = 0
+                matched_box = None
+
+                for screen_box in range(len(boxes)):
+                    tem = list_box.copy()
+                    overlap_area = self.__calculate_overlap([tem["left"] - targetArea["left"], \
+                        tem["top"] - targetArea["top"], tem["left"] - targetArea["left"] + tem["width"], \
+                            tem["top"] - targetArea["top"] + tem["height"]], \
+                            boxes[screen_box][0] + boxes[screen_box][2])
+                    # print([tem["left"] - targetArea["left"], \
+                    #     tem["top"] - targetArea["top"], tem["left"] - targetArea["left"] + tem["width"], \
+                    #         tem["top"] - targetArea["top"] + tem["height"]], \
+                    #         boxes[screen_box][0] + boxes[screen_box][2])
+                    if overlap_area > max_overlap:
+                        max_overlap = overlap_area
+                        matched_box = screen_box
+
+                if matched_box is not None:
+                    matched_boxes.append(matched_box)
+                else:
+                    matched_boxes.append(0)
+                    
+            matched_boxes = np.array(matched_boxes, dtype = np.int32)
+            targetText = np.array(txts)
+            print(matched_boxes, targetText)
+            print(targetText[matched_boxes])
+            return list(targetText[matched_boxes])
+        
         return txts
     
     def textboxSeekerTrainer(self, targetArea:dict, heightOfTarget:int) -> list[dict]:
@@ -1302,41 +1875,6 @@ class OCRController():
         gray_image = cv2.cvtColor(screen, cv2.COLOR_BGR2GRAY)
         # print(gray_image.shape)
         gray_image = np.array(gray_image, dtype = np.int32)
-        # print(gray_image)
-        # print("-----------------------")
-        
-        # patterns = np.apply_along_axis(self.__modeGetter, 1, gray_image) # modes of each row
-        # # print(patterns)
-        # # print(patterns.shape)
-        # scaled_data = np.divide(patterns,255)
-        
-        # scaled_data = np.reshape(scaled_data, (-1, 1))
-        # # print(scaled_data)
-        # scaled_data = np.insert(scaled_data, 1, 0,axis=1)
-        # # print(scaled_data)
-        # # print(">>>>>>>>>>>>>>>>>>>>>>")
-        
-        # self.data = list(self.data)
-        # self.data.append(scaled_data)
-        # self.data = np.array(self.data, dtype = object)
-        
-        # self.kmeans = KMeans(n_clusters=2, random_state=0, max_iter=500)
-        # self.kmeans.fit(scaled_data)
-        
-        # self.modelLabels = list(self.modelLabels)
-        # self.modelLabels.append(self.kmeans.labels_)
-        # self.modelLabels = np.array(self.modelLabels, dtype = object)
-
-        # self.centroids = list(self.centroids)
-        # self.centroids.append(self.kmeans.cluster_centers_)
-        # self.centroids = np.array(self.centroids, dtype = object)
-        # # print(self.centroids)
-        # # print(self.modelLabels)
-        # # class1 = np.where(self.modelLabels == 0)[0]
-        # if self.modelID.shape[0] == 0:
-        #     self.modelID = np.append(self.modelID, 0)
-        # else:
-        #     self.modelID = np.append(self.modelID, copy.deepcopy(self.modelID[-1]) + 1)
         
         self.KMEANSTrainer(gray_image, 2, 0, 500)
             
@@ -1367,11 +1905,6 @@ class OCRController():
         self.temResult = copy.deepcopy(result)
 
         return result
-        # print(patterns[class1])
-        # print("<<<<<<<<<<<<<<<")
-        # print(patterns[class2])
-        # new_samples = scaler.transform(new_data)  # Scale the new samples
-        # predicted_labels = self.kmeans.predict(new_samples)
 
         
     def __modeGetter(self,npArray):
@@ -1379,26 +1912,15 @@ class OCRController():
         
         return np.argmax(counts)
 
-    def textboxSeekerPredictor(self, targetArea:dict, heightOfTarget:int, modelID:int) -> list[dict]:
+    def textboxSeekerPredictor(self, targetArea:dict, heightOfTarget:int, modelID:int, \
+        meanThreshold = False) -> list[dict]:
         screen = np.array(self.sct.grab(targetArea))
         # print(screen.shape)
         # print(screen)
         gray_image = cv2.cvtColor(screen, cv2.COLOR_BGR2GRAY)
         # print(gray_image.shape)
         gray_image = np.array(gray_image, dtype = np.int32)
-        # print(gray_image)
-        # print("-----------------------")
-        # patterns = np.apply_along_axis(self.__modeGetter, 1, gray_image) # modes of each row
-        # # print(patterns)
-        # # print(patterns.shape)
-        # scaled_data = np.divide(patterns,255)
-        # scaled_data = np.reshape(scaled_data, (-1, 1))
-        # # print(scaled_data)
-        # scaled_data = np.insert(scaled_data, 1, 0,axis=1)
         
-        # self.kmeans = KMeans(n_clusters=2, max_iter=500, init = self.centroids[modelID], n_init = 1)
-        # self.kmeans.fit(self.data[modelID])
-        # labels = self.kmeans.predict(scaled_data)
         labels = self.KMEANSPredictor(gray_image, modelID, 2, 500, 1)
         print(labels)
             
@@ -1407,6 +1929,7 @@ class OCRController():
         self.temResult.clear()
         node = 0
         lastNode = 0
+        heights = np.array([])
         for x in range(class2.shape[0]):
             if class2[x] > node:
                 if node > (lastNode + 1):
@@ -1417,6 +1940,7 @@ class OCRController():
                     if heightOfTarget <= tem["height"]:
                         result.append(tem)
                     self.temResult.append(tem)
+                    heights = np.append(heights, tem["height"])
                     
                 tem=copy.deepcopy(targetArea)
                 tem["top"] = node + targetArea["top"]
@@ -1424,12 +1948,24 @@ class OCRController():
                 if heightOfTarget <= tem["height"]:
                     result.append(tem)
                 self.temResult.append(tem)
+                heights = np.append(heights, tem["height"])
 
                 lastNode = copy.deepcopy(class2[x])
                 node = copy.deepcopy(class2[x])
             node+=1
+        
+        if meanThreshold:
+            result = np.array(result)
+            threshold = np.mean(heights)
+            strongTextBoxes = np.where(heights > threshold)[0]
+            heights = heights[strongTextBoxes]
+            result = result[strongTextBoxes]
+            inlier = np.where(heights < threshold * 2.5)[0]
+            result = result[inlier]
+            result = list(result)
+            
         if len(result) == 0:
-            result = copy.deepcopy(targetArea)
+            result = [copy.deepcopy(targetArea)]
         # self.temResult = copy.deepcopy(result)
 
 
@@ -1516,6 +2052,7 @@ class OCRController():
         if mode == "train":
             print(textboxArea, textHeight)
             print(screenArea)
+            result = []
             for y in range(0, textboxArea["height"] - textHeight, 2):
                 print(y)
                 counter = 0
@@ -1539,7 +2076,7 @@ class OCRController():
                         counter += 1
                         result.append(None)
                         
-                if counter == 0 and self.textLocationPredictor(textArea, screenArea, modelID):
+                if counter < len(result) and self.textLocationPredictor(textArea, screenArea, modelID):
                     self.relativeDistance[modelID].append(temRelativeDis)
                     break
             print(result, "<<<<<<<<<<<<<<<<<<<<<<")
@@ -1606,13 +2143,13 @@ class OCRController():
                 if textHeight == -1:
                     textHeight = lower - upper
                     
-                if self.textLocationPredictor(textArea, screenArea, modelID) and counter == 0:
+                if self.textLocationPredictor(textArea, screenArea, modelID) and counter < len(result):
                     satisfyFlag.append(True)
                     break
-                elif self.textLocationPredictor(adjustAreaUpper, screenArea, modelID) and counterUpper == 0:
+                elif self.textLocationPredictor(adjustAreaUpper, screenArea, modelID) and counterUpper < len(resultUpper):
                     satisfyFlag.append(True)
                     break
-                elif self.textLocationPredictor(adjustAreaLower, screenArea, modelID) and counterLower == 0:
+                elif self.textLocationPredictor(adjustAreaLower, screenArea, modelID) and counterLower < len(resultLower):
                     satisfyFlag.append(True)
                     break
                 else:
@@ -1906,44 +2443,42 @@ class edit_excel():
         except Exception as e:
             self.open_and_close_txt(e)
 
-    # 编辑数据
-    # def edit_sheet(self, excel_name, page_title, list_Title, list_Data):
-    #     try:
-    #         path = os.getcwd() + "\\data\\" + excel_name
-    #         workbook = openpyxl.load_workbook(path)
-    #
-    #         sheet = workbook.active
-    #         page_name = str(page_title[0])
-    #         index = 0
-    #
-    #         a = "昵称"
-    #         b = "标签"
-    #         if b in list_Title:  # 确认锚点
-    #             index = list_Title.index(a)
-    #         elif a in list_Title:
-    #             index = list_Title.index(b)
-    #
-    #         point = list_Data[index]  # 根据锚点的数据，确认行数
-    #
-    #         # target_column = 2
-    #
-    #         count = 2
-    #         for row in sheet.iter_rows(min_row=2, values_only=True):
-    #             if str(row[target_column - 1]) == target_name:
-    #                 # 更新整行数据
-    #                 new_data = (information_edit[0], information_edit[1], information_edit[2], information_edit[3],
-    #                             information_edit[4], information_edit[5])  # 新的整行数据作为元组
-    #                 i = 1
-    #                 for col, data in enumerate(information_edit, start=0):  # 修改整行数据
-    #                     cell = sheet.cell(row=count, column=i)
-    #                     cell.value = data
-    #                     i += 1
-    #                 break  # 找到匹配行后跳出循环
-    #             count += 1
-    #
-    #         workbook.save(path)
-    #     except Exception as e:
-    #         self.open_and_close_txt(e)
+    # 编辑数据，
+    def edit_sheet(self, excel_name, page_title, list_Title, list_Data):
+        try:
+            file_path = os.getcwd() + "\\data\\" + excel_name[0]
+            wb = openpyxl.load_workbook(file_path)
+            ws = wb.active
+
+            col_num = 0
+            for column in ws.iter_cols(min_row=1, max_row=1):
+                for cell in column:
+                    if cell.value == page_title[0]:
+                        col_num = cell.column
+                        # print(f"The data is in column {col_num}")
+
+            print(col_num)
+            target_name = str(list_Data[1])
+            the_row = 2
+            for row in ws.iter_rows(min_row=2, values_only=True):
+                if str(row[col_num]) == target_name:
+                    i = col_num
+                    for col, data in enumerate(list_Data, start=0):  # 修改整行数据
+                        # print(1)
+                        cell = ws.cell(row=the_row, column=i)
+                        # print(2)
+                        cell.value = data
+                        i += 1
+
+                    break  # 找到匹配行后跳出循环
+                the_row += 1
+            wb.save(file_path)
+            wb.close()
+        except Exception as e:
+            self.open_and_close_txt(e)
+
+
+
 
     # 下面这个function和create_new_folder一起调用，是对人员信息的添加
     def import_member_information(self, member_list):
@@ -1972,9 +2507,6 @@ class edit_excel():
             count = 2
             for row in sheet.iter_rows(min_row=2, values_only=True):
                 if str(row[target_column - 1]) == target_name:
-                    # 更新整行数据
-                    new_data = (information_edit[0], information_edit[1], information_edit[2], information_edit[3],
-                                information_edit[4], information_edit[5])  # 新的整行数据作为元组
                     i = 1
                     for col, data in enumerate(information_edit, start=0):  # 修改整行数据
                         cell = sheet.cell(row=count, column=i)
@@ -2031,14 +2563,14 @@ class edit_excel():
         except Exception as e:
             self.open_and_close_txt(e)
 
-
 class UserBehaviourController():
     def __init__(self, mouseCon:mouse_control, mouseDetect:eventMouse, OCRCon:OCRController, \
-        dbManagement:edit_excel) -> None:
+        dbManagement:edit_excel, mainCon:windowsUI) -> None:
         
         self.recoredBehaviours = []
         self.behavioursInterpreter = {"leftClick":mouseCon.move_and_press_mouse, "clickOnButton":\
-            mouseCon.clickOnButton}
+            mouseCon.clickOnButton, "timeWait":mainCon.timeWait, "iconDetection": mainCon.waitUntilIconDetected,\
+                "loopController":mainCon.loopController}
         self.oldPointer = len(self.recoredBehaviours)
         
         
@@ -2099,3 +2631,4 @@ if __name__ == "__main__":
     ocr=OCRController(os.getcwd())
     text=ocr.textboxSeekerTrainer({"top": 0, "left": 0, "width": 1920, "height": 1080})
     # print(text)
+
