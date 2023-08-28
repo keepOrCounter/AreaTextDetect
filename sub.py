@@ -1010,6 +1010,7 @@ click after pressing 'ok'. This message could be close in setting panel.")
         elif 2000>status >= 1131:
             fileName = list(self.mainPanelButtons[4].keys())[status % 1130][8:]
             image = cv2.imread(self.dbManagement.currentPath + "\\UI\\" + fileName, flags=1)
+            print(self.dbManagement.currentPath + "\\UI\\" + fileName)
             self.userInteraction.actionRecord(self.description[1131],\
                 (image, (0,0,self.screen.width, self.screen.height)), self.recordPointer)
             self.shownListManagement("add", self.description[1131]+": " + fileName)
@@ -1754,22 +1755,22 @@ class mouse_control():
         pyautogui.moveTo(x_position, y_position, mouse_time)
         
     def clickOnButton(self, image, region: tuple[int]) -> None:
-    
-        image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-
-        help_pos = pyautogui.locateOnScreen(image_rgb,confidence=0.6,region=region, minSearchTime = 1) #region中的参数为xy起始点，宽度和高度
-        # print("----------------")
-        # print(help_pos)
+        print(type(image))
+        # image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        print(region)
+        help_pos = pyautogui.locateOnScreen(image,confidence=0.7,region=region, minSearchTime = 1) #region中的参数为xy起始点，宽度和高度
+        print("----------------")
+        print(help_pos)
         if help_pos != None:
             # print(help_pos)
             goto_pos = pyautogui.center(help_pos) # 找到传回图片的中心点,并传回坐标
             self.move_and_press_mouse(goto_pos.x, goto_pos.y)
-            # print(goto_pos)
+            print(goto_pos)
             
     def iconDetection(self, image, region: tuple[int]) -> bool:
-        image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        # image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-        help_pos = pyautogui.locateOnScreen(image_rgb,confidence=0.6,region=region, minSearchTime = 1) #region中的参数为xy起始点，宽度和高度
+        help_pos = pyautogui.locateOnScreen(image,confidence=0.7,region=region, minSearchTime = 1) #region中的参数为xy起始点，宽度和高度
         # print("----------------")
         # print(help_pos)
         if help_pos != None:
