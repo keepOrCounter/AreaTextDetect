@@ -29,6 +29,7 @@ class eventKeyboard():
     NOTICE!!!  pressed(key) would check whether main program is down every 10 sec,
         to make it continous working, call activeFlagSet(newFlag=1) to reactive the working status.
 
+
     StartListener(): start the listener, also safe for any unterminate listener.
     terminate(): end the listener
 
