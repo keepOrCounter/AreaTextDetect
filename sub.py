@@ -2265,7 +2265,7 @@ class edit_excel():
         self.currentPath = os.getcwd()
         self.title_list = []
         self.excel_name = ""
-
+        self.path_now = ""
 
     def OCRModelDataSaver(self, centroids:np.ndarray, data:np.ndarray, \
         modelID:np.ndarray, relativeDistance:list) ->None :
@@ -2341,12 +2341,12 @@ class edit_excel():
         try:
             if not os.path.isdir(self.currentPath + "\\data"):
                 os.makedirs(self.currentPath + "\\data")
-                self.currentPath = self.currentPath + "\\data"
+                self.path_now = self.currentPath + "\\data"
             else:
-                self.currentPath = self.currentPath + "\\data"
+                self.path_now = self.currentPath + "\\data"
         except Exception as e:
             self.open_and_close_txt(e)
-            self.currentPath = self.currentPath + "\\data"
+
 
     # name是新excel的名字，请包含完整信息，比如“xxxx.xlsx”，mod默认为0
     def create_new_excel(self, mod=0):
@@ -2357,7 +2357,7 @@ class edit_excel():
                 # 提取当前月份
                 current_month = current_time.tm_mon
                 name = str(current_month) + "月_部落战.xlsx"
-                file_path = os.path.join(self.currentPath, name)
+                file_path = os.path.join(self.path_now, name)
                 if os.path.exists(file_path):  # 判断该excel是否存在于这个文件夹中
                     self.excel_name = name
                     print("已经存在")
@@ -2367,7 +2367,7 @@ class edit_excel():
                     self.excel_name = name
             elif mod == 1:
                 name = "人员信息统计.xlsx"
-                file_path = os.path.join(self.currentPath, name)
+                file_path = os.path.join(self.path_now, name)
                 if os.path.exists(file_path):  # 判断该excel是否存在于这个文件夹中
                     self.excel_name = name
                     print("已经存在")
@@ -2388,9 +2388,8 @@ class edit_excel():
     # 导入数据
     def create_and_import_sheet(self, page_title, list_Title, list_Data):
         try:
-            file_path = os.path.join(self.currentPath, self.excel_name)
-            npy_path = os.path.join(self.currentPath, self.excel_name + ".npy")
-            # print(self.currentPath)
+            file_path = os.path.join(self.path_now, self.excel_name)
+            npy_path = os.path.join(self.path_now, self.excel_name + ".npy")
             print("excel name is: " + self.excel_name)
             self.title_list = self.read_npy(npy_path)
 
@@ -2483,7 +2482,7 @@ class edit_excel():
     # 下面这个function和create_new_folder一起调用，是对人员信息的添加
     def import_member_information(self, member_list):
         try:
-            name = os.path.join(self.currentPath, self.excel_name)
+            name = os.path.join(self.path_now, self.excel_name)
             workbook = openpyxl.load_workbook(name)
             sheet = workbook.active
             new_row = sheet.max_row + 1
