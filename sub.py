@@ -2482,6 +2482,7 @@ class edit_excel():
     # 下面这个function和create_new_folder一起调用，是对人员信息的添加
     def import_member_information(self, member_list):
         try:
+            print(member_list)
             name = os.path.join(self.path_now, self.excel_name)
             workbook = openpyxl.load_workbook(name)
             sheet = workbook.active
@@ -2529,9 +2530,7 @@ class edit_excel():
             target_column = "B"
 
             target_row = None
-
-            for row in sheet.iter_rows(min_row=2, max_row=sheet.max_row, min_col=sheet[target_column].column,
-                                       max_col=sheet[target_column].column):
+            for row in sheet.iter_rows(min_row=2, max_row=sheet.max_row, min_col=1, max_col=3):
                 if row[1].value == target_value:
                     target_row = row[1].row
                     break
@@ -2644,5 +2643,6 @@ if __name__ == "__main__":
     # text=ocr.textboxSeekerTrainer({"top": 0, "left": 0, "width": 1920, "height": 1080})
     # print(text)
     test = edit_excel()
-    
-    print(test.allMemberLabel())
+    # test.new_data_excel(member_list = ["sk","#YHHJJK",000,1,1,"T"],mod=1)
+    print(test.search_member_information("#YHHJJK"))
+    # print(test.allMemberLabel())
