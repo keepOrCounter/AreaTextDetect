@@ -21,6 +21,7 @@ from collections.abc import Iterable
 from tkinter.messagebox import *
 from tkinter import ttk, RIGHT, Y, LEFT
 from sklearn.metrics import pairwise_distances as cdist
+from datetime import datetime
 
 class eventKeyboard():
     """
@@ -189,7 +190,8 @@ class eventKeyboard():
         # try:
         #     self.recordKey.remove("{}".format(key.char))
         # except:
-        self.recordKey.remove("{}".format(tem))
+        if len(self.recordKey) > 0:
+            self.recordKey.remove("{}".format(tem))
         
         if time.time() - self.timeIntervalStart > 10.0:
             if self.activeFlag == -1: # check if main thread is active, if not, kill sub thread
@@ -206,8 +208,8 @@ class eventKeyboard():
 
         if self.__status == -1:
             self.terminate()
-            self.keyPressed = pynput.keyboard.Listener(on_press=self.pressed, on_release=self.released)
             self.recordKey = []
+            self.keyPressed = pynput.keyboard.Listener(on_press=self.pressed, on_release=self.released)
             
         self.__status = 1
         self.keyPressed.start()
@@ -472,7 +474,7 @@ find out text boxes"], ["Please choose one of model to filter out error location
         self.description = {2010:"leftClick", 1131: "clickOnButton", 5110:"timeWait", 5121: "iconDetection", \
             6101:"loopController", 6543:"dataForm"}
         
-        self.formDataDesicion = ["--==//binary calculation--==//", "--==//time--==//", "--==//special condition--==//"]
+        self.formDataDesicion = ["--==//binary operation--==//", "--==//time--==//", "--==//special condition--==//"]
         self.timeCondition = ["Current time YY:MM:DD:H:M:S", "Time appear on list YY:MM:DD:H:M:S", \
             "Time disappear from list YY:MM:DD:H:M:S"]
         self.binaryCalculation = ["+", "-", "x", "÷"]
@@ -1691,16 +1693,16 @@ find out all target text, please tell us the target text of the first line.(Pres
             self.Start(6542)
             
         elif status == 6542:
-            if len(self.formConditionSelection) > 0:
+            if len(self.formConditionSelection) > self.specialData:
                 titleKeys = list(self.mapForm.keys())
                 condition = self.mapForm[titleKeys[self.formConditionSelection[self.specialData]]]
-                self.specialData += 1
-                if condition == "--==//binary calculation--==//":
+                if condition == "--==//binary operation--==//":
                     self.layOutController("binary calculation", align = "form")
                 elif condition == "--==//time--==//":
                     self.layOutController("time", align = "form")
                 elif condition == "--==//special condition--==//":
                     self.layOutController("special condition", align = "form")
+                self.specialData += 1
                 self.statusID = 6543
                 
             else:
@@ -1715,18 +1717,23 @@ find out all target text, please tell us the target text of the first line.(Pres
                 tem.append(self.currentOtherWidgets[x].get())
                 
             titleKeys = list(self.mapForm.keys())
-            self.mapForm[titleKeys[self.formConditionSelection[self.specialData]]] = [self.mapForm[titleKeys[self.formConditionSelection[self.specialData]]]] + tem
+            self.mapForm[titleKeys[self.formConditionSelection[self.specialData - 1]]] = [self.mapForm[titleKeys[self.formConditionSelection[self.specialData - 1]]]] + tem
             
-            if len(self.formConditionSelection) > 0:
+            print(self.specialData)
+            print(self.mapForm)
+            print(self.formConditionSelection)
+            if len(self.formConditionSelection) > self.specialData:
                 condition = self.mapForm[titleKeys[self.formConditionSelection[self.specialData]]]
-                self.specialData += 1
+                print(condition)
 
-                if condition == "--==//binary calculation--==//":
+                if condition == "--==//binary operation--==//":
                     self.layOutController("binary calculation", align = "form")
                 elif condition == "--==//time--==//":
                     self.layOutController("time", align = "form")
                 elif condition == "--==//special condition--==//":
                     self.layOutController("special condition", align = "form")
+                    
+                self.specialData += 1
                 self.statusID = 6543
             else:
                 print(self.mapForm)
@@ -2983,31 +2990,119 @@ class edit_excel():
         self.title_list = []
         self.excel_name = ""
         self.backUpData = dict()
+        self.currentForm = None
 
     def dataTransferWrapper(self, fileName:str, mapList:list, primaryKeyIndex = [], pageTitle = [],\
         list_Title:list = [], specialDataIndex = []) -> None:
-        dataTitle = list(self.backUpData.keys())
+        # dataTitle = list(self.backUpData.keys())
         specialDataIndex = set(specialDataIndex)
-        disappearFlag = False
+        disappearIndex = set()
         
-        for x in range(len(self.backUpData[dataTitle[0]])):
+        for x in range(len(self.backUpData[0])):
             dataResult = []
-            for y in range(len(dataTitle)):
+            updateIndexList = []
+            formData = self.infoSearch(fileName, primaryKeyIndex)
+            
+            operationList = []
+            disappearFlag = False
+            
+            for y in range(len(mapList)):
                 if y not in specialDataIndex:
-                    dataResult += [self.backUpData[dataTitle[y]][x]]
+                    dataResult += [self.backUpData[mapList[y]][x]]
+                    updateIndexList.append(y)
                 else:
-                    if mapList[x][0] == "--==//binary calculation--==//":
-                        firstNum = list_Title.index(mapList[x][1])
-                        secondNum = list_Title.index(mapList[x][3])
+                    if mapList[y][0] == "--==//binary operation--==//":
+                        firstNum = list_Title.index(mapList[y][1])
+                        secondNum = list_Title.index(mapList[y][3])
                         
-                        operation = mapList[x][2]
+                        operation = mapList[y][2]
+                        lantency = False
                         
-                        if operation == "-":
-                            dataResult += [self.backUpData[dataTitle[y]][x]]
+                        if formData == False:
+                            if firstNum < len(dataResult) and secondNum < len(dataResult):
+                                firstCol = dataResult[firstNum].replace("-", "", 1)
+                                secondCol = dataResult[secondNum].replace("-", "", 1)
+                                pattern = r"(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})"
+    
+                                matches1 = re.findall(pattern, dataResult[firstNum])
+                                matches2 = re.findall(pattern, dataResult[secondNum])
+                                
+                                colData1 = dataResult[firstNum]
+                                colData2 = dataResult[secondCol]
+                            
+                            elif firstNum not in specialDataIndex and secondNum not in specialDataIndex:
+                                firstCol = self.backUpData[[mapList[firstNum]][x]].replace("-", "", 1)
+                                secondCol = self.backUpData[[mapList[secondNum]][x]].replace("-", "", 1)
+                                pattern = r"(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})"
+    
+                                matches1 = re.findall(pattern, self.backUpData[[mapList[firstNum]][x]])
+                                matches2 = re.findall(pattern, self.backUpData[[mapList[secondNum]][x]])
+                                
+                                colData1 = self.backUpData[[mapList[firstNum]][x]]
+                                colData2 = self.backUpData[[mapList[secondNum]][x]]
                         
-                    elif mapList[x][0] == "--==//time--==//":
-                        if mapList[x][1] == "Time appear on list YY:MM:DD:H:M:S":
-                            appear = self.appearanceCheck(fileName, list(np.array(list_Title)[np.array(primaryKeyIndex)]))
+                            else:
+                                operationList.append(y)
+                                lantency = True
+                        else:
+                            firstCol = formData[firstNum].replace("-", "", 1)
+                            secondCol = formData[secondNum].replace("-", "", 1)
+                            pattern = r"(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})"
+    
+                            matches1 = re.findall(pattern, formData[firstNum])
+                            matches2 = re.findall(pattern, formData[secondNum])
+                            
+                            colData1 = formData[firstNum]
+                            colData2 = formData[secondNum]
+                            
+                        if not lantency:
+                            if firstCol.isdigital() and secondCol.isdigital():
+                                if operation == "-":
+                                    dataResult += [int(colData1) - \
+                                        int(colData2)]
+                                    updateIndexList.append(y)
+                                elif operation == "+":
+                                    dataResult += [int(colData1) + \
+                                        int(colData2)]
+                                    updateIndexList.append(y)
+                                elif operation == "x":
+                                    dataResult += [int(colData1) * \
+                                        int(colData2)]
+                                    updateIndexList.append(y)
+                                elif operation == "÷":
+                                    dataResult += [int(colData1) / \
+                                        int(colData2)]
+                                    updateIndexList.append(y)
+
+                            elif len(matches1) == 1 and len(matches2) == 1:
+                                if operation == "-":
+                                    time1 = datetime.strptime(colData1, \
+                                        "%Y-%m-%d %H:%M:%S")
+                                    time2 = datetime.strptime(colData2, \
+                                        "%Y-%m-%d %H:%M:%S")
+
+                                    # Calculate the time difference
+                                    time_diff = time1 - time2
+
+                                    # Extract the desired units
+                                    print(str(time_diff))
+
+                                    dataResult += [str(time_diff)]
+                                    updateIndexList.append(y)
+                                elif operation == "+":
+                                    pass
+                                elif operation == "x":
+                                    pass
+                                elif operation == "÷":
+                                    pass
+                        
+                    elif mapList[y][0] == "--==//time--==//":
+                        if mapList[y][1] == "Time appear on list YY:MM:DD:H:M:S":
+                            if formData == False:
+                                appear = False
+                            else:
+                                appear = True
+                            
                             if not appear:
                                 currentTime = time.localtime(time.time())
                                 year = currentTime.tm_year  # last two digits of the year
@@ -3020,28 +3115,21 @@ class edit_excel():
                                 # Format the time components as YY-MM-DD-Hours-Minutes-Seconds (int)
                                 formatted_time = "{:02d}-{:02d}-{:02d}-{:02d}-{:02d}-{:02d}".format(year, month, day, hours, minutes, seconds)
                                 dataResult += [formatted_time]
-                            # else:
-                            #     keyFilter = temForm
-                            #     for pKey in primaryKeyIndex: # Find out the eligible lines
-                            #         keyFilter = keyFilter.loc[keyFilter[dataTitle[pKey]]==self.backUpData[dataTitle[pKey]][x]]
-                            #     if keyFilter.index.shape[0] == 0:
-                            #         currentTime = time.localtime(time.time())
-                            #         year = currentTime.tm_year  # last two digits of the year
-                            #         month = currentTime.tm_mon
-                            #         day = currentTime.tm_mday
-                            #         hours = currentTime.tm_hour
-                            #         minutes = currentTime.tm_min
-                            #         seconds = currentTime.tm_sec
+                                updateIndexList.append(y)
+                            else:
+                                dataResult += ["placeHolder"]
 
-                            #         # Format the time components as YY-MM-DD Hours:Minutes:Seconds (int)
-                            #         formatted_time = "{:02d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}".format(year, month, day, hours, minutes, seconds)
-                            #         dataResult += [formatted_time]
-                                
-                    elif mapList[x][0] == "--==//special condition--==//":
+                        elif mapList[y][1] == "Time disappear from list YY:MM:DD:H:M:S":
+                            dataResult += ["placeHolder"]
+                            if y not in disappearIndex:
+                                disappearIndex.add(y)
+                                disappearFlag = True
+                            
+                    elif mapList[y][0] == "--==//special condition--==//":
                         pass
                             
         # for x in specialDataIndex:
-        #     if mapList[x][0] == "--==//binary calculation--==//":
+        #     if mapList[x][0] == "--==//binary operation--==//":
         #         if mapList[x][1] == "Time appear on list YY:MM:DD:H:M:S":
         #             file_path = os.path.join(self.currentPath, "data\\"+fileName)
         #             if not os.path.exists(file_path):
@@ -3051,6 +3139,18 @@ class edit_excel():
         #     elif mapList[x][0] == "--==//special condition--==//":
         #         pass
         
+    def infoSearch(self, fileName:str, keysList:list):
+        file_path = os.path.join(self.currentPath, "data\\"+fileName)
+        if not os.path.exists(file_path):
+            return False
+        result = False
+        
+        if fileName == "人员信息统计.xlsx":
+            result = self.search_member_information(keysList[0])
+            if result == None:
+                return False
+        
+        return result
         
     def appearanceCheck(self, fileName:str, keysList:list):
         file_path = os.path.join(self.currentPath, "data\\"+fileName)
@@ -3060,6 +3160,21 @@ class edit_excel():
         if fileName == "人员信息统计.xlsx":
             if self.search_member_information(keysList[0]) == None:
                 return False
+            
+        return True
+
+    def disappearanceCheck(self, fileName:str, keysIndex:list, addTimeLineTo = []):
+        file_path = os.path.join(self.currentPath, "data\\"+fileName)
+        if not os.path.exists(file_path):
+            return False
+        
+        if fileName == "人员信息统计.xlsx":
+            currentExistKeys = set(self.backUpData[keysIndex[0]])
+            formLabel = self.allMemberLabel()
+            for x in range(formLabel):
+                if formLabel[x] not in currentExistKeys:
+                    if len(addTimeLineTo) > 0:
+                        addTimeLineTo[0]
             
         return True
 
