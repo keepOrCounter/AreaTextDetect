@@ -1458,7 +1458,7 @@ click after pressing 'ok'. This message could be close in setting panel.")
         elif 6104 >= status >=6101:
             if len(self.loopCounter[status % 6101]) < 3:
                 tem = self.currentInput[0].get()
-                if tem.isdigit():
+                if tem.isdigit() or tem == "-1":
                     counter = int(tem)
 
                     self.loopCounter[status % 6101].clear()
