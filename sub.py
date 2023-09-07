@@ -48,7 +48,7 @@ class eventKeyboard():
         
         self.activeFlag = -1
         self.keyPressed = pynput.keyboard.Listener(on_press = self.pressed, on_release = self.released)
-        self.counter = 0
+        # self.counter = 0
         # self.shortcutThread = False
         
         self.__status = 0
@@ -154,6 +154,7 @@ class eventKeyboard():
                     #     print("sssssssssssssssssssssss")
                     tem = self.recordKey[0] + self.recordKey[1]
                     if tem in self.recordedshortcut.keys():
+                        print(self.recordedshortcut[tem])
                         self.__status = self.recordedshortcut[tem] # Change status if user triggered a shortcut
         
         if time.time() - self.timeIntervalStart > 10.0:
@@ -206,7 +207,8 @@ class eventKeyboard():
         if self.__status == -1:
             self.terminate()
             self.keyPressed = pynput.keyboard.Listener(on_press=self.pressed, on_release=self.released)
-
+            self.recordKey = []
+            
         self.__status = 1
         self.keyPressed.start()
         self.timeIntervalStart = time.time()
@@ -440,7 +442,7 @@ class windowsUI():
             "Setting": [1102], "next page": [1103], "testRecord": [1104]},
                 {"Mouse Click": [1110], "Mouse Hold": [1111], "Mouse Move": [1112], \
                     "Scorlling": [1113],"Text Recognize": [1114], "Loop": [1115], \
-                        "Standby": [1116],"Save record": [1117], "Back to home page": [1118]},
+                        "Standby": [1116], "form the data": [1117],"Save record": [1118], "Back to home page": [1119]},
                 {"Back to home page": [4100]}, 
                 {"record by coordinate": [1120],"click on a button": [1121],"back": [1122]}, 
                 {"back": [1130]}, {"wait by time counts": [5100], "wait until specific text show up": [5101], \
@@ -448,15 +450,39 @@ class windowsUI():
                 {"confirm": [5110], "Cancel": [5111]}, {"back": [5120]}, {"Cancel": [6100]}, \
                 {"a Piece of text": [6110], "list of text": [6111], "Cancel": [6112]}, \
                 {"Cancel": [6120], "Set up new model": [6121]}, {"Cancel": [6300], \
-                    "Set up new model": [6301]}) # 11
+                    "Set up new model": [6301]}, {"No": [5120]}, {"Begin of the text": [6400], \
+                        "End of the text": [6401]}, \
+                {"click on text boxes(centre)": [6410],"click on a button": [6411],"Text retrieval": [6412],\
+                    "DONE": [6413]}, {}, {"Area text recognize(Faster,lower accuracy)": [6500], \
+                        "text matching(Slower,higher accuracy)": [6501]}, \
+                {"Cancel":[6520], "member information":[6521], "clans battles":[6522]}, \
+                {"Cancel":[6540], "Confirm":[6541]}) # 18
         self.mainPanelInput = ([],[],[],[],[],[],["Hours", "Minutes", "Seconds"],[],\
             ["Loop time(-1 for infinite loop and will only stop by user interrupt)"], \
-                [],[],[]) # 11
+                [],[],[],[],[],[],[],[], [], []) # 18
         self.mainPanelLabel = ([],[],[],[],[],[],[],[],[],[],["Please choose one of model to \
-find out text boxes"],["Please choose one of model to filter out error location"]) # 11
+find out text boxes"], ["Please choose one of model to filter out error location"],\
+    ["Is there any icon or UI could easily be consider as text?"], ["Where the icon locate at?"], [], [], [], \
+        ["Which form would you like to save your data?"], \
+        ["Please correspond your data with correct title, this form only show the first line"]) # 18
+        
+        self.mainPanelCombobox = ([],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],\
+        [[6, "昵称","标签","加入","最近退出","差值","常驻认证T/F"]]) # 18
         
         self.description = {2010:"leftClick", 1131: "clickOnButton", 5110:"timeWait", 5121: "iconDetection", \
-            6101:"loopController"}
+            6101:"loopController", 6543:"dataForm"}
+        
+        self.formDataDesicion = ["--==//binary calculation--==//", "--==//time--==//", "--==//special condition--==//"]
+        self.timeCondition = ["Current time YY:MM:DD:H:M:S", "Time appear on list YY:MM:DD:H:M:S", \
+            "Time disappear from list YY:MM:DD:H:M:S"]
+        self.binaryCalculation = ["+", "-", "x", "÷"]
+        self.specialCondition = ["=", ">", "<", ">=", "<="]
+        self.mapForm = dict()
+        self.formConditionSelection = []
+        self.specialData = 0
+        
+        self.temFileName = ""
+        
         # Store the buttons on main Panel and their status ID
         self.currentButton: list[tkinter.Button] = []
         self.currentLabel = []
@@ -465,7 +491,9 @@ find out text boxes"],["Please choose one of model to filter out error location"
         self.currentButtonSubWin: list[tkinter.Button] = []
         self.currentLabelSubWin = []
         
-        self.currentOtherComponents = []
+        self.currentOtherWidgets = []
+        
+
         
         self.loopCounter = ([],[],[],[]) # index of loop back to, loop time, if finished loop
 
@@ -497,6 +525,7 @@ find out text boxes"],["Please choose one of model to filter out error location"
         self.__counter = 0  # status id for drawer function
         self.counter = -1
         self.__root = tkinter.Tk()
+        self.__root.iconbitmap("agent.ico")   # 更改窗口图标
 
         self.windowSize = {"root": [width, height, positionX, positionY], "screenShoter": \
             [0, 0, 0, 0], "record": [0,0,0,0]}  # all type of window size
@@ -509,6 +538,12 @@ find out text boxes"],["Please choose one of model to filter out error location"
         
         self.scroller = None
         self.mylistBox = None
+        
+        self.imageFilterOut = None
+        self.indexFilterOut = None
+        
+        self.currentColumnNum = -1
+        self.temForm = dict()
         
         # testButton = tkinter.Button(self.__root, text="tester")
         # font = Font(testButton["font"])  # get font information
@@ -568,7 +603,7 @@ find out text boxes"],["Please choose one of model to filter out error location"
 
         self.__root.mainloop()
 
-    def layOutController(self, mode="root", view=0, lastmode = None, windows = "root") -> None:
+    def layOutController(self, mode="root", view=0, lastmode = "None", windows = "root", align = "downward") -> None:
         if windows == "root":
             counter = 0
             buttonNum = len(self.mainPanelButtons[view].keys())
@@ -578,7 +613,7 @@ find out text boxes"],["Please choose one of model to filter out error location"
             buttonStatusSetup = []
             if mode == "root":
                 self.widgetsCleaner(self.currentButton, self.currentLabel, self.currentButtonSubWin, \
-                    self.currentLabelSubWin, self.scroller, self.mylistBox, self.currentInput)
+                    self.currentLabelSubWin, self.scroller, self.mylistBox, self.currentInput, self.currentOtherWidgets)
                 if self.__subWindows != None:
                     self.__subWindows.destroy()
                     self.__subWindows = None
@@ -589,7 +624,8 @@ find out text boxes"],["Please choose one of model to filter out error location"
                 self.__root.resizable(0, 0)
 
             elif mode == "record":
-                self.widgetsCleaner(self.currentButton, self.currentLabel, self.currentInput)
+                self.widgetsCleaner(self.currentButton, self.currentLabel, self.currentInput, \
+                    self.currentOtherWidgets)
                 print(self.currentButton)
                 # for x in range(len(self.currentButton)):
                 #     self.currentButton[x].destroy()
@@ -608,50 +644,12 @@ find out text boxes"],["Please choose one of model to filter out error location"
 
                 self.__root.resizable(0, 0)
 
-            elif mode == "executeList":
-                self.widgetsCleaner(self.currentButton, self.currentLabel, self.currentInput)
-
-                self.windowSize[lastmode] = []  # back up the size of last window
-                self.windowSize[lastmode].append(self.width)
-                self.windowSize[lastmode].append(self.height)
-                self.windowSize[lastmode].append(self.positionX)
-                self.windowSize[lastmode].append(self.positionY)
-
-                self.width = int(self.__root.winfo_screenwidth() / 5)
-                self.height = int(self.width * 2 / 1)
-                self.positionX = 50
-                self.positionY = 50
+            elif mode == "executeList" or mode == "clickRecord" or mode == "UIClick" or mode == "standbyConfig"\
+                or mode == "textRecognizeConfig" or mode == "extraSteps" or mode == "extraStepsUIClick"\
+                    or mode == "TextRetrievalMode":
                 
-            elif mode == "clickRecord":
-                self.widgetsCleaner(self.currentButton, self.currentLabel, self.currentInput)
-
-                self.windowSize[lastmode] = []  # back up the size of last window
-                self.windowSize[lastmode].append(self.width)
-                self.windowSize[lastmode].append(self.height)
-                self.windowSize[lastmode].append(self.positionX)
-                self.windowSize[lastmode].append(self.positionY)
-
-                self.width = int(self.__root.winfo_screenwidth() / 5)
-                self.height = int(self.width * 2 / 1)
-                self.positionX = 50
-                self.positionY = 50
-                
-            elif mode == "UIClick":
-                self.widgetsCleaner(self.currentButton, self.currentLabel, self.currentInput)
-
-                self.windowSize[lastmode] = []  # back up the size of last window
-                self.windowSize[lastmode].append(self.width)
-                self.windowSize[lastmode].append(self.height)
-                self.windowSize[lastmode].append(self.positionX)
-                self.windowSize[lastmode].append(self.positionY)
-
-                self.width = int(self.__root.winfo_screenwidth() / 5)
-                self.height = int(self.width * 2 / 1)
-                self.positionX = 50
-                self.positionY = 50
-                
-            elif mode == "standbyConfig":
-                self.widgetsCleaner(self.currentButton, self.currentLabel, self.currentInput)
+                self.widgetsCleaner(self.currentButton, self.currentLabel, self.currentInput, \
+                    self.currentOtherWidgets)
 
                 self.windowSize[lastmode] = []  # back up the size of last window
                 self.windowSize[lastmode].append(self.width)
@@ -665,7 +663,8 @@ find out text boxes"],["Please choose one of model to filter out error location"
                 self.positionY = 50
                 
             elif mode == "timeWaitConfig":
-                self.widgetsCleaner(self.currentButton, self.currentLabel, self.currentInput)
+                self.widgetsCleaner(self.currentButton, self.currentLabel, self.currentInput, \
+                    self.currentOtherWidgets)
 
                 self.windowSize[lastmode] = []  # back up the size of last window
                 self.windowSize[lastmode].append(self.width)
@@ -696,7 +695,8 @@ find out text boxes"],["Please choose one of model to filter out error location"
                                                  y=counter * self.height / (buttonNum + 1) - lineHeight / 2)
 
             elif mode == "loopConfig":
-                self.widgetsCleaner(self.currentButton, self.currentLabel, self.currentInput)
+                self.widgetsCleaner(self.currentButton, self.currentLabel, self.currentInput, \
+                    self.currentOtherWidgets)
 
                 self.windowSize[lastmode] = []  # back up the size of last window
                 self.windowSize[lastmode].append(self.width)
@@ -742,23 +742,10 @@ find out text boxes"],["Please choose one of model to filter out error location"
                     #
                     self.currentInput[-1].place(x=(self.width - lineWidth) / 2,
                                                  y=counter * self.height / (buttonNum + 1) - lineHeight / 2)
-
-            elif mode == "textRecognizeConfig":
-                self.widgetsCleaner(self.currentButton, self.currentLabel, self.currentInput)
-
-                self.windowSize[lastmode] = []  # back up the size of last window
-                self.windowSize[lastmode].append(self.width)
-                self.windowSize[lastmode].append(self.height)
-                self.windowSize[lastmode].append(self.positionX)
-                self.windowSize[lastmode].append(self.positionY)
-
-                self.width = int(self.__root.winfo_screenwidth() / 5)
-                self.height = int(self.width * 2 / 1)
-                self.positionX = 50
-                self.positionY = 50
                 
             elif mode == "textBoxesModelling":
-                self.widgetsCleaner(self.currentButton, self.currentLabel, self.currentInput)
+                self.widgetsCleaner(self.currentButton, self.currentLabel, self.currentInput, \
+                    self.currentOtherWidgets)
 
                 self.windowSize[lastmode] = []  # back up the size of last window
                 self.windowSize[lastmode].append(self.width)
@@ -785,7 +772,8 @@ find out text boxes"],["Please choose one of model to filter out error location"
                                                  y=counter * self.height / (buttonNum + 1) - lineHeight / 2)
 
             elif mode == "textSeeker":
-                self.widgetsCleaner(self.currentButton, self.currentLabel, self.currentInput)
+                self.widgetsCleaner(self.currentButton, self.currentLabel, self.currentInput, \
+                    self.currentOtherWidgets)
 
                 self.windowSize[lastmode] = []  # back up the size of last window
                 self.windowSize[lastmode].append(self.width)
@@ -811,30 +799,414 @@ find out text boxes"],["Please choose one of model to filter out error location"
                     self.currentLabel[-1].place(x=(self.width - lineWidth) / 2,
                                                  y=counter * self.height / (buttonNum + 1) - lineHeight / 2)
 
+            elif mode == "iconFilterOut":
+                self.widgetsCleaner(self.currentButton, self.currentLabel, self.currentInput, \
+                    self.currentOtherWidgets)
+
+                self.windowSize[lastmode] = []  # back up the size of last window
+                self.windowSize[lastmode].append(self.width)
+                self.windowSize[lastmode].append(self.height)
+                self.windowSize[lastmode].append(self.positionX)
+                self.windowSize[lastmode].append(self.positionY)
+
+                self.width = int(self.__root.winfo_screenwidth() / 5)
+                self.height = int(self.width * 2 / 1)
+                self.positionX = 50
+                self.positionY = 50
+                
+                for x in self.mainPanelLabel[view]:# place buttons
+                    counter += 1
+                    self.currentLabel.append(tkinter.Label(self.__root, text=x, fg="white", bg="black"))
+
+                    font = Font(font=self.currentLabel[-1]["font"])  # get font information
+                    lineHeight = font.metrics("linespace")  # calculate hieght and weidth by font information
+                    lineWidth = font.measure(x)
+                    # print(lineHeight,lineWidth)
+                    # print()
+#       
+                    self.currentLabel[-1].place(x=(self.width - lineWidth) / 2,
+                                                 y=counter * self.height / (buttonNum + 1) - lineHeight / 2)
+
+            elif mode == "positionSelect":
+                self.widgetsCleaner(self.currentButton, self.currentLabel, self.currentInput, \
+                    self.currentOtherWidgets)
+
+                self.windowSize[lastmode] = []  # back up the size of last window
+                self.windowSize[lastmode].append(self.width)
+                self.windowSize[lastmode].append(self.height)
+                self.windowSize[lastmode].append(self.positionX)
+                self.windowSize[lastmode].append(self.positionY)
+
+                self.width = int(self.__root.winfo_screenwidth() / 5)
+                self.height = int(self.width * 2 / 1)
+                self.positionX = 50
+                self.positionY = 50
+                
+                for x in self.mainPanelLabel[view]:# place buttons
+                    counter += 1
+                    self.currentLabel.append(tkinter.Label(self.__root, text=x, fg="white", bg="black"))
+
+                    font = Font(font=self.currentLabel[-1]["font"])  # get font information
+                    lineHeight = font.metrics("linespace")  # calculate hieght and weidth by font information
+                    lineWidth = font.measure(x)
+                    # print(lineHeight,lineWidth)
+                    # print()
+#       
+                    self.currentLabel[-1].place(x=(self.width - lineWidth) / 2,
+                                                 y=counter * self.height / (buttonNum + 1) - lineHeight / 2)
+
+            elif mode == "memberInfoForm":
+                self.widgetsCleaner(self.currentButton, self.currentLabel, self.currentInput, \
+                    self.currentOtherWidgets)
+
+                self.windowSize[lastmode] = []  # back up the size of last window
+                self.windowSize[lastmode].append(self.width)
+                self.windowSize[lastmode].append(self.height)
+                self.windowSize[lastmode].append(self.positionX)
+                self.windowSize[lastmode].append(self.positionY)
+
+                self.width = int(self.__root.winfo_screenwidth() / 1.25)
+                self.height = int(self.__root.winfo_screenheight() / 4)
+                self.positionX = 50
+                self.positionY = 50
+                
+                rowNumber = len(self.mainPanelCombobox[view])
+                columnNum = self.mainPanelCombobox[view][0][0]
+                com = ttk.Combobox(self.__root)     # #创建下拉菜单
+                com.place(x = 0, y = 0)     # #将下拉菜单绑定到窗体
+                self.__root.update()
+                com["value"] = ("test1", "test2", "test3")    # #给下拉菜单设定值
+                com.current(2)    # #设定下拉菜单的默认值为第3个
+                width = com.winfo_width()
+                height = com.winfo_height()
+                com.destroy()
+                counter = 0
+                # print(rowNumber)
+                for x in range(rowNumber):# place combobox as form
+                    
+                    for y in range(self.mainPanelCombobox[view][x][0]):
+                        counter = y
+                        self.currentOtherWidgets.append(ttk.Combobox(self.__root))
+                        if x > 0:
+                            self.currentOtherWidgets[-1]["value"] = self.mainPanelCombobox[view][x][1:] + self.formDataDesicion
+                        else:
+                            self.currentOtherWidgets[-1]["value"] = self.mainPanelCombobox[view][x][1:]
+                        self.currentOtherWidgets[-1].current(y)
+                        # print(self.height)
+                        # print(self.height - height*rowNumber\
+                        #         - 1*(rowNumber-1) / 2 + x*(height+1))
+                        # print(height)
+                        self.currentOtherWidgets[-1].place(x=(self.width - width*columnNum - \
+                            1*(columnNum-1)) / 2 + y*(width + 1), y=(self.height - height*rowNumber\
+                                - 1*(rowNumber-1)) / 2 + x*(height+1))
+
+                    while len(self.currentOtherWidgets) % columnNum != 0:
+                        counter += 1
+                        self.currentOtherWidgets.append(ttk.Combobox(self.__root))
+                        self.currentOtherWidgets[-1]["value"] = self.formDataDesicion
+                        self.currentOtherWidgets[-1].place(x=(self.width - width*columnNum - \
+                            1*(columnNum-1)) / 2 + counter*(width + 1), y=(self.height - height*rowNumber\
+                                - 1*(rowNumber-1)) / 2 + x*(height+1))
+                        
+                for x in self.mainPanelLabel[view]:# place labels
+                    self.currentLabel.append(tkinter.Label(self.__root, text=x, fg="white", bg="black"))
+
+                    font = Font(font=self.currentLabel[-1]["font"])  # get font information
+                    lineHeight = font.metrics("linespace")  # calculate hieght and weidth by font information
+                    lineWidth = font.measure(x)
+                    # print(lineHeight,lineWidth)
+                    # print()
+#       
+                    self.currentLabel[-1].place(x=(self.width - lineWidth) / 2, y= 1)
+                    
+                buttonTitle = self.mainPanelButtons[view].keys()
+                counter = 0
+                for x in buttonTitle:# place buttons
+                    tem = self.__lambdaCreater(self.mainPanelButtons[view][x][0])
+                    # print(self.mainPanelButtons[view][x][0])
+                    self.currentButton.append(tkinter.Button(self.__root, text=x, command=tem))
+
+                    font = Font(font=self.currentButton[-1]["font"])  # get font information
+                    lineHeight = font.metrics("linespace")  # calculate hieght and weidth by font information
+                    lineWidth = font.measure(x)
+                    # print(lineHeight,lineWidth)
+                    # print()
+#       
+                    self.currentButton[-1].place(x=(self.width - lineWidth) * (counter * 2 + 1) / (len(buttonTitle)*2),
+                        y=self.height - lineHeight*2)
+                    counter += 1
+#       
+            elif mode == "formConfig":
+                self.widgetsCleaner(self.currentButton, self.currentLabel, self.currentInput, \
+                    self.currentOtherWidgets)
+
+                self.windowSize[lastmode] = []  # back up the size of last window
+                self.windowSize[lastmode].append(self.width)
+                self.windowSize[lastmode].append(self.height)
+                self.windowSize[lastmode].append(self.positionX)
+                self.windowSize[lastmode].append(self.positionY)
+
+                self.width = int(self.__root.winfo_screenwidth() / 5)
+                self.height = int(self.width * 2 / 1)
+                self.positionX = 50
+                self.positionY = 50
+                
+                for x in self.mainPanelLabel[view]:# place buttons
+                    counter += 1
+                    self.currentLabel.append(tkinter.Label(self.__root, text=x, fg="white", bg="black"))
+
+                    font = Font(font=self.currentLabel[-1]["font"])  # get font information
+                    lineHeight = font.metrics("linespace")  # calculate hieght and weidth by font information
+                    lineWidth = font.measure(x)
+                    # print(lineHeight,lineWidth)
+                    # print()
+#       
+                    self.currentLabel[-1].place(x=(self.width - lineWidth) / 2,
+                                                 y=counter * self.height / (buttonNum + 1) - lineHeight / 2)
+
+            elif mode == "binary calculation":
+                self.widgetsCleaner(self.currentButton, self.currentLabel, self.currentInput, \
+                    self.currentOtherWidgets)
+
+                self.width = int(self.__root.winfo_screenwidth() / 1.25)
+                self.height = int(self.__root.winfo_screenheight() / 4)
+                self.positionX = 50
+                self.positionY = 50
+                
+                rowNumber = 1
+                columnNum = 3
+                com = ttk.Combobox(self.__root)     # #创建下拉菜单
+                com.place(x = 0, y = 0)     # #将下拉菜单绑定到窗体
+                self.__root.update()
+                com["value"] = ("test1", "test2", "test3")    # #给下拉菜单设定值
+                com.current(2)    # #设定下拉菜单的默认值为第3个
+                width = com.winfo_width()
+                height = com.winfo_height()
+                com.destroy()
+                
+                titleKeys = list(self.mapForm.keys())
+                
+                self.currentOtherWidgets.append(ttk.Combobox(self.__root))
+                self.currentOtherWidgets[-1]["value"] = titleKeys
+                self.currentOtherWidgets[-1].current(0)
+                
+                self.currentOtherWidgets[-1].place(x=(self.width - width*columnNum - \
+                    1*(columnNum-1)) / 2 + 0*(width + 1), y=(self.height - height*rowNumber\
+                        - 1*(rowNumber-1)) / 2 + 0*(height+1))
+
+                self.currentOtherWidgets.append(ttk.Combobox(self.__root))
+                self.currentOtherWidgets[-1]["value"] = self.binaryCalculation
+                self.currentOtherWidgets[-1].current(0)
+                
+                self.currentOtherWidgets[-1].place(x=(self.width - width*columnNum - \
+                    1*(columnNum-1)) / 2 + 1*(width + 1), y=(self.height - height*rowNumber\
+                        - 1*(rowNumber-1)) / 2 + 0*(height+1))
+                
+                self.currentOtherWidgets.append(ttk.Combobox(self.__root))
+                self.currentOtherWidgets[-1]["value"] = titleKeys
+                self.currentOtherWidgets[-1].current(0)
+                
+                self.currentOtherWidgets[-1].place(x=(self.width - width*columnNum - \
+                    1*(columnNum-1)) / 2 + 2*(width + 1), y=(self.height - height*rowNumber\
+                        - 1*(rowNumber-1)) / 2 + 0*(height+1))
+                        
+                x = "Please decide which binary computation between two column. Column: " + titleKeys[self.formConditionSelection[self.specialData]]
+                self.currentLabel.append(tkinter.Label(self.__root, text=x, fg="white", bg="black"))
+    
+                font = Font(font=self.currentLabel[-1]["font"])  # get font information
+                lineWidth = font.measure(x)
+#      
+                self.currentLabel[-1].place(x=(self.width - lineWidth) / 2, y= 1)
+                    
+                    
+                
+                self.currentButton.append(tkinter.Button(self.__root, text="Back", command=lambda: self.Start(6544)))
+        
+                font = Font(font=self.currentButton[-1]["font"])  # get font information
+                lineHeight = font.metrics("linespace")  # calculate hieght and weidth by font information
+                lineWidth = font.measure("Back")
+                # print(lineHeight,lineWidth)
+                # print()
+#      
+                self.currentButton[-1].place(x=(self.width - lineWidth) * (0 * 2 + 1) / (2*2),
+                    y=self.height - lineHeight*2)
+                
+                self.currentButton.append(tkinter.Button(self.__root, text="Confirm", command=lambda: self.Start(6545)))
+        
+                font = Font(font=self.currentButton[-1]["font"])  # get font information
+                lineHeight = font.metrics("linespace")  # calculate hieght and weidth by font information
+                lineWidth = font.measure("Confirm")
+                # print(lineHeight,lineWidth)
+                # print()
+#      
+                self.currentButton[-1].place(x=(self.width - lineWidth) * (1 * 2 + 1) / (2*2),
+                    y=self.height - lineHeight*2)
+
+            elif mode == "time":
+                self.widgetsCleaner(self.currentButton, self.currentLabel, self.currentInput, \
+                    self.currentOtherWidgets)
+
+                self.width = int(self.__root.winfo_screenwidth() / 1.25)
+                self.height = int(self.__root.winfo_screenheight() / 4)
+                self.positionX = 50
+                self.positionY = 50
+                
+                rowNumber = 1
+                columnNum = 1
+                com = ttk.Combobox(self.__root)     # #创建下拉菜单
+                com.place(x = 0, y = 0)     # #将下拉菜单绑定到窗体
+                self.__root.update()
+                com["value"] = ("test1", "test2", "test3")    # #给下拉菜单设定值
+                com.current(2)    # #设定下拉菜单的默认值为第3个
+                width = com.winfo_width()
+                height = com.winfo_height()
+                com.destroy()
+                
+                titleKeys = list(self.mapForm.keys())
+                
+                self.currentOtherWidgets.append(ttk.Combobox(self.__root))
+                self.currentOtherWidgets[-1]["value"] = self.timeCondition
+                self.currentOtherWidgets[-1].current(0)
+                
+                self.currentOtherWidgets[-1].place(x=(self.width - width*columnNum - \
+                    1*(columnNum-1)) / 2 + 0*(width + 1), y=(self.height - height*rowNumber\
+                        - 1*(rowNumber-1)) / 2 + 0*(height+1))
+                        
+                x = "Please decide type of time you would like to record. Column: " + titleKeys[self.formConditionSelection[self.specialData]]
+                self.currentLabel.append(tkinter.Label(self.__root, text=x, fg="white", bg="black"))
+    
+                font = Font(font=self.currentLabel[-1]["font"])  # get font information
+                lineWidth = font.measure(x)
+#      
+                self.currentLabel[-1].place(x=(self.width - lineWidth) / 2, y= 1)
+                print(self.width, lineWidth)
+                    
+                    
+                
+                self.currentButton.append(tkinter.Button(self.__root, text="Back", command=lambda: self.Start(6544)))
+        
+                font = Font(font=self.currentButton[-1]["font"])  # get font information
+                lineHeight = font.metrics("linespace")  # calculate hieght and weidth by font information
+                lineWidth = font.measure("Back")
+                # print(lineHeight,lineWidth)
+                # print()
+#      
+                self.currentButton[-1].place(x=(self.width - lineWidth) * (0 * 2 + 1) / (2*2),
+                    y=self.height - lineHeight*2)
+                
+                self.currentButton.append(tkinter.Button(self.__root, text="Confirm", command=lambda: self.Start(6545)))
+        
+                font = Font(font=self.currentButton[-1]["font"])  # get font information
+                lineHeight = font.metrics("linespace")  # calculate hieght and weidth by font information
+                lineWidth = font.measure("Confirm")
+                # print(lineHeight,lineWidth)
+                # print()
+#      
+                self.currentButton[-1].place(x=(self.width - lineWidth) * (1 * 2 + 1) / (2*2),
+                    y=self.height - lineHeight*2)
+
+            elif mode == "special condition":
+                self.widgetsCleaner(self.currentButton, self.currentLabel, self.currentInput, \
+                    self.currentOtherWidgets)
+
+                self.width = int(self.__root.winfo_screenwidth() / 1.25)
+                self.height = int(self.__root.winfo_screenheight() / 4)
+                self.positionX = 50
+                self.positionY = 50
+                
+                rowNumber = 1
+                columnNum = 3
+                com = ttk.Combobox(self.__root)     # #创建下拉菜单
+                com.place(x = 0, y = 0)     # #将下拉菜单绑定到窗体
+                self.__root.update()
+                com["value"] = ("test1", "test2", "test3")    # #给下拉菜单设定值
+                com.current(2)    # #设定下拉菜单的默认值为第3个
+                width = com.winfo_width()
+                height = com.winfo_height()
+                com.destroy()
+                
+                titleKeys = list(self.mapForm.keys())
+                
+                self.currentOtherWidgets.append(ttk.Combobox(self.__root))
+                self.currentOtherWidgets[-1]["value"] = titleKeys
+                self.currentOtherWidgets[-1].current(0)
+                
+                self.currentOtherWidgets[-1].place(x=(self.width - width*columnNum - \
+                    1*(columnNum-1)) / 2 + 0*(width + 1), y=(self.height - height*rowNumber\
+                        - 1*(rowNumber-1)) / 2 + 0*(height+1))
+
+                self.currentOtherWidgets.append(ttk.Combobox(self.__root))
+                self.currentOtherWidgets[-1]["value"] = self.specialCondition
+                self.currentOtherWidgets[-1].current(0)
+                
+                self.currentOtherWidgets[-1].place(x=(self.width - width*columnNum - \
+                    1*(columnNum-1)) / 2 + 1*(width + 1), y=(self.height - height*rowNumber\
+                        - 1*(rowNumber-1)) / 2 + 0*(height+1))
+                
+                self.currentOtherWidgets.append(ttk.Combobox(self.__root))
+                self.currentOtherWidgets[-1]["value"] = titleKeys
+                
+                self.currentOtherWidgets[-1].place(x=(self.width - width*columnNum - \
+                    1*(columnNum-1)) / 2 + 2*(width + 1), y=(self.height - height*rowNumber\
+                        - 1*(rowNumber-1)) / 2 + 0*(height+1))
+                        
+                x = "Please decide \
+condition between two column.(or a number and a column). Column: " + titleKeys[self.formConditionSelection[self.specialData]]
+                self.currentLabel.append(tkinter.Label(self.__root, text=x, fg="white", bg="black"))
+    
+                font = Font(font=self.currentLabel[-1]["font"])  # get font information
+                lineWidth = font.measure(x)
+#      
+                self.currentLabel[-1].place(x=(self.width - lineWidth) / 2, y= 1)
+                    
+                    
+                
+                self.currentButton.append(tkinter.Button(self.__root, text="Back", command=lambda: self.Start(6544)))
+        
+                font = Font(font=self.currentButton[-1]["font"])  # get font information
+                lineHeight = font.metrics("linespace")  # calculate hieght and weidth by font information
+                lineWidth = font.measure("Back")
+                # print(lineHeight,lineWidth)
+                # print()
+#      
+                self.currentButton[-1].place(x=(self.width - lineWidth) * (0 * 2 + 1) / (2*2),
+                    y=self.height - lineHeight*2)
+                
+                self.currentButton.append(tkinter.Button(self.__root, text="Confirm", command=lambda: self.Start(6545)))
+        
+                font = Font(font=self.currentButton[-1]["font"])  # get font information
+                lineHeight = font.metrics("linespace")  # calculate hieght and weidth by font information
+                lineWidth = font.measure("Confirm")
+#      
+                self.currentButton[-1].place(x=(self.width - lineWidth) * (1 * 2 + 1) / (2*2),
+                    y=self.height - lineHeight*2)
+                
 
             self.__root.geometry("{0}x{1}+{2}+{3}" \
                 .format(self.width, self.height, self.positionX, self.positionY))
 
-            for x in self.mainPanelButtons[view].keys():# place buttons
-                counter += 1
-                tem = self.__lambdaCreater(self.mainPanelButtons[view][x][0])
-                # print(self.mainPanelButtons[view][x][0])
-                self.currentButton.append(tkinter.Button(self.__root, text=x, command=tem))
-                if len(buttonStatusSetup) > 0:
-                    # print(counter)
-                    # print(buttonStatusSetup)
-                    # print(len(self.mainPanelInput[view]))
-                    # print(buttonStatusSetup[counter - len(self.mainPanelInput[view]) - 1])
-                    self.currentButton[-1].config(state=buttonStatus[buttonStatusSetup[counter - len(self.mainPanelInput[view]) - 1]])
-                    
-                font = Font(font=self.currentButton[-1]["font"])  # get font information
-                lineHeight = font.metrics("linespace")  # calculate hieght and weidth by font information
-                lineWidth = font.measure(x)
-                # print(lineHeight,lineWidth)
-                # print()
-#   
-                self.currentButton[-1].place(x=(self.width - lineWidth) / 2,
-                                             y=counter * self.height / (buttonNum + 1) - lineHeight / 2)
+            if align == "downward":
+                for x in self.mainPanelButtons[view].keys():# place buttons
+                    counter += 1
+                    tem = self.__lambdaCreater(self.mainPanelButtons[view][x][0])
+                    # print(self.mainPanelButtons[view][x][0])
+                    self.currentButton.append(tkinter.Button(self.__root, text=x, command=tem))
+                    if len(buttonStatusSetup) > 0:
+                        # print(counter)
+                        # print(buttonStatusSetup)
+                        # print(len(self.mainPanelInput[view]))
+                        # print(buttonStatusSetup[counter - len(self.mainPanelInput[view]) - 1])
+                        self.currentButton[-1].config(state=buttonStatus[buttonStatusSetup[counter - len(self.mainPanelInput[view]) - 1]])
+
+                    font = Font(font=self.currentButton[-1]["font"])  # get font information
+                    lineHeight = font.metrics("linespace")  # calculate hieght and weidth by font information
+                    lineWidth = font.measure(x)
+                    # print(lineHeight,lineWidth)
+                    # print()
+#       
+                    self.currentButton[-1].place(x=(self.width - lineWidth) / 2,
+                                                 y=counter * self.height / (buttonNum + 1) - lineHeight / 2)
+
 
 
     def __lambdaCreater(self, x):  # create lambda function for button, prevent shollow copy
@@ -845,6 +1217,7 @@ find out text boxes"],["Please choose one of model to filter out error location"
         
         self.__subWindows = tkinter.Toplevel()  # set up sub window
         self.__subWindows.title("recorded operations")
+        self.__subWindows.iconbitmap("agent.ico")   # 更改窗口图标
         if backup:
             self.windowSize[lastMode] = []  # back up the size of last window
             self.windowSize[lastMode].append(self.width)
@@ -961,6 +1334,10 @@ find out text boxes"],["Please choose one of model to filter out error location"
             self.statusID = 5000
             
         elif status == 1117:
+            self.layOutController("formConfig", 17, "root")
+            self.statusID = 6510
+            
+        elif status == 1118:
             self.recordPointer = len(self.userInteraction.recoredBehaviours)
             self.userInteraction.oldPointer = len(self.userInteraction.recoredBehaviours)
             if len(self.mainPanelButtons[2].keys()) == 1: # add button to execute panel
@@ -974,7 +1351,7 @@ find out text boxes"],["Please choose one of model to filter out error location"
             self.messageBox = showinfo("RseMessager", "operation recorded!")
             self.statusID = 1000
             
-        elif status == 1118:
+        elif status == 1119:
             self.userInteraction.delRecord()
             self.recordPointer = len(self.userInteraction.recoredBehaviours)
             
@@ -1021,6 +1398,9 @@ click after pressing 'ok'. This message could be close in setting panel.")
             self.statusID = 1000
             
         elif 4200> status >= 4101:
+            del self.temForm
+            self.temForm = dict()
+            self.currentColumnNum = -1
             self.counter = -1
             self.executePointer = 0
             self.loopCounter = ([],[],[],[])
@@ -1078,7 +1458,7 @@ click after pressing 'ok'. This message could be close in setting panel.")
         elif 6104 >= status >=6101:
             if len(self.loopCounter[status % 6101]) < 3:
                 tem = self.currentInput[0].get()
-                if tem.isdigit():
+                if tem.isdigit() or tem == "-1":
                     counter = int(tem)
 
                     self.loopCounter[status % 6101].clear()
@@ -1141,7 +1521,32 @@ to area of the list after pressing 'ok'.(Press key 'alt+z' finish the step)")
             self.statusID = 6201
             
         elif status == 6202:
-            pass
+            fileList = self.dbManagement.UIImageList()
+            # print(fileList)
+            self.mainPanelButtons[12].clear()
+            self.mainPanelButtons[12]["No"] = [6205]
+            for x in range(len(fileList)):
+                self.mainPanelButtons[12]["button. "+fileList[x]] = [6205 + x +1]
+            self.layOutController("iconFilterOut", 12, "textSeeker")
+            self.statusID = 6203
+            
+        elif status == 6205:
+            self.messageBox = showinfo("RseMessager", "Almost done! The model would try to \
+find out all target text, please tell us the target text of the first line.(Press key 'alt+z' finish the step)")
+            self.__root.attributes("-alpha", 0)
+            if self.__subWindows != None:
+                self.__subWindows.attributes("-alpha", 0)
+                
+            self.screenShotCreation()
+            self.counter = 0
+            self.statusID = 2002
+            
+        elif 6300 > status > 6205:
+            fileName = list(self.mainPanelButtons[12].keys())[status % 6205][8:]
+            print(self.dbManagement.currentPath + "\\UI\\" + fileName)
+            self.imageFilterOut = cv2.imread(self.dbManagement.currentPath + "\\UI\\" + fileName, flags=1)
+            self.layOutController("positionSelect", 13, "iconFilterOut")
+            self.statusID = 6204
             
         elif 6400 > status >= 6302:
             self.testModelID = status % 6302
@@ -1157,8 +1562,182 @@ the model would determine if this cut any text(you could test multiple area at t
                 self.__subWindows.attributes("-alpha", 0)
             self.statusID = 2001
             
-        elif status == 6400:
+        elif status == 6400 or status == 6401:
+            self.indexFilterOut = -1 * (status % 6400)
+            print(self.indexFilterOut)
+            self.messageBox = showinfo("RseMessager", "Almost done! The model would try to \
+find out all target text, please tell us the target text of the first line.(Press key 'alt+z' finish the step)")
+            self.__root.attributes("-alpha", 0)
+            if self.__subWindows != None:
+                self.__subWindows.attributes("-alpha", 0)
+                
+            self.__root.geometry("{0}x{1}+{2}+{3}" \
+                .format(self.width, self.height, 0-self.width, 0-self.height))
+
+            self.screenShotCreation()
+            self.counter = 0
+            self.statusID = 2002
+
+        elif status == 6402:
+            self.messageBox = askquestion("RseMessager", "Is there any text not on form\
+? If so, we need extra steps to acquire the text.(Please also include the step to turn back to the form.)")
+            if self.messageBox == "yes":
+                self.layOutController("extraSteps", 14, "positionSelect")
+                self.statusID = 6403
+            else:
+                self.layOutController("record", 1, "positionSelect")
+                self.statusID = 1010
+
+        elif status == 6406:
+            self.layOutController("extraSteps", 14, "TextRetrievalMode")
+            self.statusID = 6403
+
+        elif status == 6410:
+            textBoxesParam = (self.description[2010], "textBoxCentre")
+            self.sequencialCommand.append(copy.deepcopy(textBoxesParam))
+            self.messageBox = showinfo("RseMessager", "step recorded")
+            self.statusID = 6403
+            
+        elif status == 6411:
+            fileList = self.dbManagement.UIImageList()
+            for x in range(len(fileList)):
+                self.mainPanelButtons[15]["button. "+fileList[x]] = [6420 + x]
+            self.layOutController("extraStepsUIClick", 15, "extraSteps")
+            self.statusID = 6404
+            
+        elif status == 6412:
+            self.layOutController("TextRetrievalMode", 16, "extraSteps")
+            self.statusID = 6405
+            
+        elif status == 6413:
+            self.layOutController("record", 1, "positionSelect")
+            self.statusID = 1010
+            
+        elif 6500 > status >= 6420:
+            fileName = list(self.mainPanelButtons[15].keys())[status % 6420][8:]
+            image = cv2.imread(self.dbManagement.currentPath + "\\UI\\" + fileName, flags=1)
+            
+            textBoxesParam = (self.description[1131],\
+                (image, (0,0,self.screen.width, self.screen.height)))
+            self.sequencialCommand.append(copy.deepcopy(textBoxesParam))
+            self.messageBox = showinfo("RseMessager", "step recorded")
+            self.layOutController("extraSteps", 14, "extraStepsUIClick")
+            self.statusID = 6403
+            
+        elif status == 6500:
+            self.messageBox = showinfo("RseMessager", "Please tell us the location of the text.")
+            self.__root.attributes("-alpha", 0)
+            if self.__subWindows != None:
+                self.__subWindows.attributes("-alpha", 0)
+                
+            self.screenShotCreation()
+            self.counter = 0
+            self.statusID = 2004
+        
+        elif status == 6501:
+            self.messageBox = showinfo("RseMessager", "Please tell us the location of the text.")
+            self.__root.attributes("-alpha", 0)
+            if self.__subWindows != None:
+                self.__subWindows.attributes("-alpha", 0)
+                
+            self.screenShotCreation()
+            self.counter = 0
+            self.statusID = 2003
+
+        elif status == 6520:
             pass
+        
+        elif status == 6521:
+            self.temFileName = "人员信息统计.xlsx"
+            tem = []
+            for x in range(len(list(self.temForm.keys()))):
+                if x == 0:
+                    tem.append(len(list(self.temForm.keys())))
+                tem.append(self.temForm[x][0])
+            if len(tem) > 0:
+                self.mainPanelCombobox[18].append(tem)
+            
+            self.layOutController("memberInfoForm", 18, "formConfig", align = "form")
+            self.statusID = 6530
+            
+        elif status == 6522:
+            pass
+
+        elif status == 6541:
+            title = dict()
+            firstRow = []
+            nonDataRecord = []
+            for x in range(len(self.currentOtherWidgets)):
+                if x < self.mainPanelCombobox[18][0][0]:
+                    title[self.currentOtherWidgets[x].get()] = -1
+                else:
+                    name = list(title.keys())
+                    firstRow.append(self.currentOtherWidgets[x].get())
+                    for y in self.temForm.keys():
+                        if firstRow[-1] == self.temForm[y][0]:
+                            title[name[x - self.mainPanelCombobox[18][0][0]]] = copy.deepcopy(y)
+                    if title[name[x - self.mainPanelCombobox[18][0][0]]] == -1:
+                        title[name[x - self.mainPanelCombobox[18][0][0]]] = firstRow[-1]
+                        nonDataRecord.append(x - self.mainPanelCombobox[18][0][0])
+            print(title)
+            print(nonDataRecord)
+            
+            self.formConditionSelection = nonDataRecord
+            self.mapForm = title
+            tem = copy.deepcopy(self.mainPanelCombobox[18][0])
+            self.mainPanelCombobox[18].clear()
+            self.mainPanelCombobox[18].append(tem)
+            
+            self.Start(6542)
+            
+        elif status == 6542:
+            if len(self.formConditionSelection) > 0:
+                titleKeys = list(self.mapForm.keys())
+                condition = self.mapForm[titleKeys[self.formConditionSelection[self.specialData]]]
+                self.specialData += 1
+                if condition == "--==//binary calculation--==//":
+                    self.layOutController("binary calculation", align = "form")
+                elif condition == "--==//time--==//":
+                    self.layOutController("time", align = "form")
+                elif condition == "--==//special condition--==//":
+                    self.layOutController("special condition", align = "form")
+                self.statusID = 6543
+                
+            else:
+                pass
+            
+        elif status == 6544:
+            pass
+        
+        elif status == 6545:
+            tem = []
+            for x in range(len(self.currentOtherWidgets)):
+                tem.append(self.currentOtherWidgets[x].get())
+                
+            titleKeys = list(self.mapForm.keys())
+            self.mapForm[titleKeys[self.formConditionSelection[self.specialData]]] = [self.mapForm[titleKeys[self.formConditionSelection[self.specialData]]]] + tem
+            
+            if len(self.formConditionSelection) > 0:
+                condition = self.mapForm[titleKeys[self.formConditionSelection[self.specialData]]]
+                self.specialData += 1
+
+                if condition == "--==//binary calculation--==//":
+                    self.layOutController("binary calculation", align = "form")
+                elif condition == "--==//time--==//":
+                    self.layOutController("time", align = "form")
+                elif condition == "--==//special condition--==//":
+                    self.layOutController("special condition", align = "form")
+                self.statusID = 6543
+            else:
+                print(self.mapForm)
+                self.userInteraction.actionRecord(self.description[6543],\
+                    (self.temFileName, list(self.mapForm.values()), [], [], list(self.mapForm.keys()), \
+                        copy.deepcopy(self.formConditionSelection)), self.recordPointer)
+                self.shownListManagement("add", self.description[6543]+": " + self.temFileName)
+                
+                self.specialData = 0
+                self.layOutController("record", 1, "special condition")
+                self.statusID = 1010
 
     def keeper(self) -> None:
         # print("ID:",self.screenShot)
@@ -1434,13 +2013,12 @@ area cut some text. Is it correct?")
                 
                 self.recoredArea.clear()
                 
-                self.messageBox = showinfo("RseMessager", "Almost done! The model would try to \
-find out all target text, please tell us the target text of the first line.(Press key 'alt+z' finish the step)")
-                
-                self.screenShotCreation()
-                self.counter = 0
-                self.statusID = 2002
-                
+                self.__root.attributes("-alpha", self.alpha)
+                if self.__subWindows != None:
+                    self.__subWindows.attributes("-alpha", self.alpha)
+                self.statusID = 6202
+                self.Start(6202)
+            
         elif self.statusID == 2002: # find out text
             if self.keyBoardInterrupt.statusGet() == 2:
                 # print("ssssssssssssssss",self.statusID)
@@ -1456,6 +2034,8 @@ find out all target text, please tell us the target text of the first line.(Pres
                     print(self.textAreUpperBound, self.textAreLowerBound)
                     
                     self.recoredArea.append(transformed)
+                    
+                self.currentColumnNum = len(self.recoredArea)
                 
                 self.widgetsCleaner(self.__canvas, self.screenShotor)
                 self.__rec.clear()
@@ -1468,6 +2048,7 @@ find out all target text, please tell us the target text of the first line.(Pres
                 
                 self.sequencialCommand.append(copy.deepcopy(textBoxesParam))
                 
+                    
                 for x in self.textBoxes:
                     tem = copy.deepcopy(self.recoredArea)
                     if len(self.ocr.relativeDistance[self.testModelID]) == 0:
@@ -1481,27 +2062,117 @@ find out all target text, please tell us the target text of the first line.(Pres
                         result += self.ocr.textSeeker(tem, copy.deepcopy(x), {"top": 0, "left": 0, "width": \
                             self.screen.width, "height": self.screen.height}, self.testModelID, "predict")
                 
+                
+                textMatched = self.ocr.areTextTransfer(self.testScrollingArea, result, True, \
+                        self.imageFilterOut, self.indexFilterOut, (0,0,self.screen.width,self.screen.height))
+                
                 self.screenShotCreation()
                 counter = 0
-                for x in result:
-                    leftX = (x["left"] * self.width) / self.screen.width  # 转换相对坐标。
-                    leftY = (x["top"] * self.height) / self.screen.height
+                formCounter = 0
+                del self.temForm
+                self.temForm = dict()
+                for x in range(len(result)):
+                    leftX = (result[x]["left"] * self.width) / self.screen.width  # 转换相对坐标。
+                    leftY = (result[x]["top"] * self.height) / self.screen.height
 
-                    rightX = ((x["left"] + x["width"]) * self.width) / self.screen.width  # 转换相对坐标。
-                    rightY = ((x["top"] + x["height"]) * self.height) / self.screen.height
+                    rightX = ((result[x]["left"] + result[x]["width"]) * self.width) / self.screen.width  # 转换相对坐标。
+                    rightY = ((result[x]["top"] + result[x]["height"]) * self.height) / self.screen.height
                     if counter == 0:
                         self.rectangleCreation(leftX, leftY, rightX, rightY, "crimson")
                     elif counter == 1:
                         self.rectangleCreation(leftX, leftY, rightX, rightY, "blue")
                     else:
                         self.rectangleCreation(leftX, leftY, rightX, rightY, "green")
+                    if formCounter not in self.temForm.keys():
+                        self.temForm[formCounter] = list()
+                        
+                    self.temForm[formCounter].append(textMatched[x])
                     counter += 1
+                    formCounter += 1
                     if counter % 3 == 0:
                         counter = 0
+                    if formCounter % self.currentColumnNum == 0:
+                        formCounter = 0
                         
-                textMatched = self.ocr.areTextTransfer(self.testScrollingArea, result, True)
-                print(textMatched)
                 self.statusID = 3001
+        
+        elif self.statusID == 2003: # extra step text matching
+            if  self.keyBoardInterrupt.statusGet()== 2:
+                self.x = -10
+                self.y = -10
+                self.screenShot = 2
+
+                for x in self.__rec:
+                    transformed = self.transform(x)
+                    
+                    self.recoredArea.append(transformed)
+                    print(transformed)
+                self.widgetsCleaner(self.__canvas, self.screenShotor)
+                self.__rec.clear()
+                self.width, self.height, self.positionX, self.positionY = self.windowSize["root"]
+                
+                self.messageBox = askquestion("RseMessager", "Is the game area same with the form?")
+                if self.messageBox == "yes":
+                    textMatched = self.ocr.areTextTransfer(self.testScrollingArea, copy.deepcopy(self.recoredArea), True)
+                else:
+                    textMatched = self.ocr.areTextTransfer({"top": 0, "left": 0, "width": \
+                        self.screen.width, "height": self.screen.height}, copy.deepcopy(self.recoredArea), True)
+                
+                self.messageBox = askquestion("RseMessager", "Are the results correct? result: " + str(textMatched))
+                
+                if len(textMatched) == 1:
+                    self.temForm[self.currentColumnNum] = copy.deepcopy(textMatched)
+                    self.currentColumnNum += 1
+                elif len(textMatched) > 1:
+                    for x in range(len(textMatched)):
+                        self.temForm[self.currentColumnNum] = []
+                        self.temForm[self.currentColumnNum].append(textMatched[x])
+                        self.currentColumnNum += 1
+                
+                self.recoredArea.clear()
+                self.__root.attributes("-alpha", self.alpha)
+                if self.__subWindows != None:
+                    self.__subWindows.attributes("-alpha", self.alpha)
+                    
+                self.statusID = -1
+                self.Start(6406)
+        
+        elif self.statusID == 2004:
+            if  self.keyBoardInterrupt.statusGet()== 2:
+                self.x = -10
+                self.y = -10
+                self.screenShot = 2
+
+                for x in self.__rec:
+                    transformed = self.transform(x)
+                    
+                    self.recoredArea.append(transformed)
+                    print(transformed)
+                self.widgetsCleaner(self.__canvas, self.screenShotor)
+                self.__rec.clear()
+                self.width, self.height, self.positionX, self.positionY = self.windowSize["root"]
+                
+                textMatched = self.ocr.areTextTransfer(copy.deepcopy(self.recoredArea[-1]))
+                
+                self.messageBox = askquestion("RseMessager", "Are the results correct? result: " + str(textMatched))
+                
+                if len(textMatched) == 1:
+                    self.temForm[self.currentColumnNum] = copy.deepcopy(textMatched)
+                    self.currentColumnNum += 1
+                elif len(textMatched) > 1:
+                    for x in range(len(textMatched)):
+                        self.temForm[self.currentColumnNum] = []
+                        self.temForm[self.currentColumnNum].append(textMatched[x])
+                        self.currentColumnNum += 1
+                
+                self.recoredArea.clear()
+                self.__root.attributes("-alpha", self.alpha)
+                if self.__subWindows != None:
+                    self.__subWindows.attributes("-alpha", self.alpha)
+                    
+                self.statusID = -1
+                self.Start(6406)
+        
         elif self.statusID == 2010: # record click
             # print(self.userInteraction.recoredBehaviours)
             clickedX, clickedY = self.listener.mouseGet("left")
@@ -1536,7 +2207,7 @@ find out all target text, please tell us the target text of the first line.(Pres
                 self.Start(6200)
                 
         elif self.statusID == 3001: # stop showing result
-            if self.keyBoardInterrupt.statusGet() == 2:
+            if self.keyBoardInterrupt.statusGet()== 2:
                 # print("ssssssssssssssss",self.statusID)
                 self.x = -10
                 self.y = -10
@@ -1548,6 +2219,9 @@ find out all target text, please tell us the target text of the first line.(Pres
                 self.__root.attributes("-alpha", self.alpha)
                 if self.__subWindows != None:
                     self.__subWindows.attributes("-alpha", self.alpha)
+                self.__root.geometry("{0}x{1}+{2}+{3}" \
+                    .format(self.windowSize["record"][0], self.windowSize["record"][1], \
+                        self.windowSize["record"][2], self.windowSize["record"][3]))
                 
                 self.messageBox = askquestion("RseMessager", "Are the results correct?")
                 
@@ -1555,8 +2229,10 @@ find out all target text, please tell us the target text of the first line.(Pres
                     self.dbManagement.OCRModelDataSaver(self.ocr.centroids,\
                         self.ocr.data, self.ocr.modelID, self.ocr.relativeDistance)
                 
-                self.statusID = 6202
-                self.Start(6202)
+                
+                self.imageFilterOut, self.indexFilterOut = None, None
+                self.statusID = 6402
+                self.Start(6402)
                 
         elif 5000 > self.statusID >= 4201: # execute recorded command
             self.__root.attributes("-alpha", 0)
@@ -1735,6 +2411,13 @@ find out all target text, please tell us the target text of the first line.(Pres
 
         return monitor
 
+    def listRecognizeController(self, textBoxesParm):
+        self.textBoxes = self.ocr.textboxSeekerPredictor(*textBoxesParm) # tem, 3, self.testModelID, True
+        
+
+    def scollingRecognizeController(self):
+        pass
+    
 
 class mouse_control():
     def __init__(self):
@@ -1820,7 +2503,12 @@ class OCRController():
         overlap_area = width * height
         return overlap_area
     
-    def areTextTransfer(self, targetArea:dict, textPosition:list[dict] = [], match = False) -> list[str]:
+    def areTextTransfer(self, targetArea:dict, textPosition:list[dict] = [], match = False, \
+        imageFilterOut:np.ndarray = None, position:int = None, IconArea:tuple = None) -> list[str]:
+        
+        if np.any(imageFilterOut != None):
+            coos = pyautogui.locateAllOnScreen(imageFilterOut, confidence=0.7,region=IconArea)
+            coos = list(coos)
         screen = np.array(self.sct.grab(targetArea))
         image_rgb = cv2.cvtColor(screen, cv2.COLOR_BGR2RGB)
 
@@ -1833,39 +2521,67 @@ class OCRController():
             txts = [line[1][0] for line in x]
             
         if match:
+            print(txts)
             print(boxes)
             print(textPosition)
             print(">>>>>>>>>>>>>>>>>>>>")
             matched_boxes = []
+            filterIndex = []
 
-            for list_box in textPosition:
+            for list_box in range(len(textPosition)):
                 max_overlap = 0
                 matched_box = None
 
                 for screen_box in range(len(boxes)):
-                    tem = list_box.copy()
+                    tem = textPosition[list_box].copy()
                     overlap_area = self.__calculate_overlap([tem["left"] - targetArea["left"], \
                         tem["top"] - targetArea["top"], tem["left"] - targetArea["left"] + tem["width"], \
                             tem["top"] - targetArea["top"] + tem["height"]], \
                             boxes[screen_box][0] + boxes[screen_box][2])
-                    # print([tem["left"] - targetArea["left"], \
-                    #     tem["top"] - targetArea["top"], tem["left"] - targetArea["left"] + tem["width"], \
-                    #         tem["top"] - targetArea["top"] + tem["height"]], \
-                    #         boxes[screen_box][0] + boxes[screen_box][2])
                     if overlap_area > max_overlap:
                         max_overlap = overlap_area
                         matched_box = screen_box
+                        
+                    if list_box == 0:
+                        if position != None and np.any(imageFilterOut != None):
+                            lastx = None
+                            lasty = None
+                            for i in coos:
+                                goto_pos = pyautogui.center(i)#找到传回图片的中心点,并传回坐标
+                                if lastx == None or lasty == None or abs(lastx - goto_pos.x) \
+                                    >= i.width or abs(lasty - goto_pos.y) >= i.height:
+                                    #
+                                    lastx, lasty = goto_pos.x, goto_pos.y
+                                    wrongArea = self.__calculate_overlap((i.left - targetArea["left"], i.top - targetArea["top"], i.left \
+                                        + i.width - targetArea["left"], i.top + i.height - targetArea["top"]), \
+                                            boxes[screen_box][0] + boxes[screen_box][2])
+                                    if wrongArea >= 0.7 * i.width * i.height:
+                                        if position != -1:
+                                            txts[screen_box] = txts[screen_box][0:position] + txts[screen_box][position + 1:]
+                                        else:
+                                            print(boxes[screen_box])
+                                            print(txts[screen_box])
+                                            print(wrongArea)
+                                            print(i)
+                                            print("===========================")
+                                            txts[screen_box] = txts[screen_box][0:position]
 
                 if matched_box is not None:
                     matched_boxes.append(matched_box)
                 else:
+                    filterIndex.append(len(matched_boxes))
                     matched_boxes.append(0)
                     
             matched_boxes = np.array(matched_boxes, dtype = np.int32)
             targetText = np.array(txts)
+            filterText = np.array(filterIndex, dtype = np.int32)
             print(matched_boxes, targetText)
-            print(targetText[matched_boxes])
-            return list(targetText[matched_boxes])
+            
+            unProcessResult = targetText[matched_boxes]
+            unProcessResult[filterText] = None
+            print(unProcessResult)
+            
+            return list(unProcessResult)
         
         return txts
     
@@ -1940,16 +2656,17 @@ class OCRController():
 
                     if heightOfTarget <= tem["height"]:
                         result.append(tem)
+                        heights = np.append(heights, tem["height"])
                     self.temResult.append(tem)
-                    heights = np.append(heights, tem["height"])
                     
                 tem=copy.deepcopy(targetArea)
                 tem["top"] = node + targetArea["top"]
                 tem["height"] = class2[x] - node
                 if heightOfTarget <= tem["height"]:
                     result.append(tem)
+                    heights = np.append(heights, tem["height"])
                 self.temResult.append(tem)
-                heights = np.append(heights, tem["height"])
+                
 
                 lastNode = copy.deepcopy(class2[x])
                 node = copy.deepcopy(class2[x])
@@ -2266,6 +2983,86 @@ class edit_excel():
         self.title_list = []
         self.excel_name = ""
         self.path_now = ""
+        self.backUpData = dict()
+
+    def dataTransferWrapper(self, fileName:str, mapList:list, primaryKeyIndex = [], pageTitle = [],\
+        list_Title:list = [], specialDataIndex = []) -> None:
+        dataTitle = list(self.backUpData.keys())
+        specialDataIndex = set(specialDataIndex)
+        disappearFlag = False
+        
+        for x in range(len(self.backUpData[dataTitle[0]])):
+            dataResult = []
+            for y in range(len(dataTitle)):
+                if y not in specialDataIndex:
+                    dataResult += [self.backUpData[dataTitle[y]][x]]
+                else:
+                    if mapList[x][0] == "--==//binary calculation--==//":
+                        firstNum = list_Title.index(mapList[x][1])
+                        secondNum = list_Title.index(mapList[x][3])
+                        
+                        operation = mapList[x][2]
+                        
+                        if operation == "-":
+                            dataResult += [self.backUpData[dataTitle[y]][x]]
+                        
+                    elif mapList[x][0] == "--==//time--==//":
+                        if mapList[x][1] == "Time appear on list YY:MM:DD:H:M:S":
+                            appear = self.appearanceCheck(fileName, list(np.array(list_Title)[np.array(primaryKeyIndex)]))
+                            if not appear:
+                                currentTime = time.localtime(time.time())
+                                year = currentTime.tm_year  # last two digits of the year
+                                month = currentTime.tm_mon
+                                day = currentTime.tm_mday
+                                hours = currentTime.tm_hour
+                                minutes = currentTime.tm_min
+                                seconds = currentTime.tm_sec
+                            
+                                # Format the time components as YY-MM-DD-Hours-Minutes-Seconds (int)
+                                formatted_time = "{:02d}-{:02d}-{:02d}-{:02d}-{:02d}-{:02d}".format(year, month, day, hours, minutes, seconds)
+                                dataResult += [formatted_time]
+                            # else:
+                            #     keyFilter = temForm
+                            #     for pKey in primaryKeyIndex: # Find out the eligible lines
+                            #         keyFilter = keyFilter.loc[keyFilter[dataTitle[pKey]]==self.backUpData[dataTitle[pKey]][x]]
+                            #     if keyFilter.index.shape[0] == 0:
+                            #         currentTime = time.localtime(time.time())
+                            #         year = currentTime.tm_year  # last two digits of the year
+                            #         month = currentTime.tm_mon
+                            #         day = currentTime.tm_mday
+                            #         hours = currentTime.tm_hour
+                            #         minutes = currentTime.tm_min
+                            #         seconds = currentTime.tm_sec
+
+                            #         # Format the time components as YY-MM-DD Hours:Minutes:Seconds (int)
+                            #         formatted_time = "{:02d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}".format(year, month, day, hours, minutes, seconds)
+                            #         dataResult += [formatted_time]
+                                
+                    elif mapList[x][0] == "--==//special condition--==//":
+                        pass
+                            
+        # for x in specialDataIndex:
+        #     if mapList[x][0] == "--==//binary calculation--==//":
+        #         if mapList[x][1] == "Time appear on list YY:MM:DD:H:M:S":
+        #             file_path = os.path.join(self.currentPath, "data\\"+fileName)
+        #             if not os.path.exists(file_path):
+                        
+        #     elif mapList[x][0] == "--==//time--==//":
+        #         pass
+        #     elif mapList[x][0] == "--==//special condition--==//":
+        #         pass
+        
+        
+    def appearanceCheck(self, fileName:str, keysList:list):
+        file_path = os.path.join(self.currentPath, "data\\"+fileName)
+        if not os.path.exists(file_path):
+            return False
+        
+        if fileName == "人员信息统计.xlsx":
+            if self.search_member_information(keysList[0]) == None:
+                return False
+            
+        return True
 
     def OCRModelDataSaver(self, centroids:np.ndarray, data:np.ndarray, \
         modelID:np.ndarray, relativeDistance:list) ->None :
@@ -2581,7 +3378,7 @@ class UserBehaviourController():
         self.recoredBehaviours = []
         self.behavioursInterpreter = {"leftClick":mouseCon.move_and_press_mouse, "clickOnButton":\
             mouseCon.clickOnButton, "timeWait":mainCon.timeWait, "iconDetection": mainCon.waitUntilIconDetected,\
-                "loopController":mainCon.loopController}
+                "loopController":mainCon.loopController, "dataForm":dbManagement.dataTransferWrapper}
         self.oldPointer = len(self.recoredBehaviours)
         
         
@@ -2643,6 +3440,16 @@ if __name__ == "__main__":
     # text=ocr.textboxSeekerTrainer({"top": 0, "left": 0, "width": 1920, "height": 1080})
     # print(text)
     test = edit_excel()
-    # test.new_data_excel(member_list = ["sk","#YHHJJK",000,1,1,"T"],mod=1)
+
+    
+    # test.new_data_excel(member_list=["sk", "#YHHJJK","000","01","1","T"], mod = 1)
     print(test.search_member_information("#YHHJJK"))
-    # print(test.allMemberLabel())
+    # test.new_data_excel(["C1 P1"], \
+    #     ["参战标记","标签","进攻编号","胜利之星", "三星", "摧毁率", "验贡献"], \
+    #         ["1","#YS41335","2","2", "0", "78%", "15"])
+    # test.new_data_excel(["C1 P1"], \
+    #     ["参战标记","标签","进攻编号","胜利之星", "三星", "摧毁率", "验贡献"], \
+    #         ["1","#YS41335","20","3", "1", "88%", "15"])
+    # test.new_data_excel(["C1 P1"], \
+    #     ["参战标记","标签","进攻编号","胜利之星", "三星", "摧毁率", "验贡献"], \
+    #         ["1","#YS41335","20","3", "1", "88%", "15"])
