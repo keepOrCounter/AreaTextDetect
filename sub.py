@@ -2525,22 +2525,25 @@ class edit_excel():
             path = os.getcwd() + "\\data\\人员信息统计.xlsx"
             workbook = openpyxl.load_workbook(path)
             sheet = workbook.active
+            the_result = []
+            for i in label:
+                target_value = i
+                target_column = "B"
 
-            target_value = label
-            target_column = "B"
+                target_row = None
+                for row in sheet.iter_rows(min_row=2, max_row=sheet.max_row, min_col=1, max_col=3):
+                    if row[1].value == target_value:
+                        target_row = row[1].row
+                        break
+                if target_row is not None:
+                    row_data = [cell.value for cell in sheet[target_row]]
+                    the_result.append(row_data)
+                    workbook.close()
 
-            target_row = None
-            for row in sheet.iter_rows(min_row=2, max_row=sheet.max_row, min_col=1, max_col=3):
-                if row[1].value == target_value:
-                    target_row = row[1].row
-                    break
-            if target_row is not None:
-                row_data = [cell.value for cell in sheet[target_row]]
-                workbook.close()
-                return row_data
-            else:
-                print("Target value not found in the specified column.")
-                workbook.close()
+                else:
+                    print("Target value not found in the specified column.")
+                    workbook.close()
+            return the_result
         except Exception as e:
             self.open_and_close_txt(e)
 
@@ -2644,5 +2647,5 @@ if __name__ == "__main__":
     # print(text)
     test = edit_excel()
     # test.new_data_excel(member_list = ["sk","#YHHJJK",000,1,1,"T"],mod=1)
-    print(test.search_member_information("#YHHJJK"))
+    print(test.search_member_information(["#YHHJJK","#YHHJJ"]))
     # print(test.allMemberLabel())
