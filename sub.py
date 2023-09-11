@@ -2495,25 +2495,26 @@ class edit_excel():
             self.open_and_close_txt(e)
 
     # 进行人员信息修改
-    def edit_member_information(self, information_edit):
+    def edit_member_information(self, the_edit):
         # print(information_edit)
         try:
             path = os.getcwd() + "\\data\\人员信息统计.xlsx"
             workbook = openpyxl.load_workbook(path)
             sheet = workbook.active
-            target_name = str(information_edit[1])
-            # print(type(target_name))
-            target_column = 2
-            count = 2
-            for row in sheet.iter_rows(min_row=2, values_only=True):
-                if str(row[target_column - 1]) == target_name:
-                    i = 1
-                    for col, data in enumerate(information_edit, start=0):  # 修改整行数据
-                        cell = sheet.cell(row=count, column=i)
-                        cell.value = data
-                        i += 1
-                    break  # 找到匹配行后跳出循环
-                count += 1
+            for information_edit in the_edit:
+                target_name = str(information_edit[1])
+                # print(type(target_name))
+                target_column = 2
+                count = 2
+                for row in sheet.iter_rows(min_row=2, values_only=True):
+                    if str(row[target_column - 1]) == target_name:
+                        i = 1
+                        for col, data in enumerate(information_edit, start=0):  # 修改整行数据
+                            cell = sheet.cell(row=count, column=i)
+                            cell.value = data
+                            i += 1
+                        break  # 找到匹配行后跳出循环
+                    count += 1
 
             workbook.save(path)
             workbook.close()
@@ -2647,5 +2648,6 @@ if __name__ == "__main__":
     # print(text)
     test = edit_excel()
     # test.new_data_excel(member_list = ["sk","#YHHJJK",000,1,1,"T"],mod=1)
-    print(test.search_member_information(["#YHHJJK","#YHHJJ"]))
+    test.edit_member_information([[1,"#YHHJJK",3,4,5,6],[9,"#YHHJJ",123,345,567,899]])
+    # print(test.search_member_information(["#YHHJJK","#YHHJJ"]))
     # print(test.allMemberLabel())
