@@ -2501,6 +2501,7 @@ class edit_excel():
             path = os.getcwd() + "\\data\\人员信息统计.xlsx"
             workbook = openpyxl.load_workbook(path)
             sheet = workbook.active
+
             for information_edit in the_edit:
                 target_name = str(information_edit[1])
                 # print(type(target_name))
