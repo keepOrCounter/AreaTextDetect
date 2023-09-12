@@ -22,6 +22,7 @@ from tkinter.messagebox import *
 from tkinter import ttk, RIGHT, Y, LEFT
 from sklearn.metrics import pairwise_distances as cdist
 from datetime import datetime
+import Levenshtein
 
 class eventKeyboard():
     """
@@ -53,6 +54,7 @@ class eventKeyboard():
         # self.shortcutThread = False
         
         self.__status = 0
+        self.subFunctionDead = False
         self.shortcutFlag = False
         self.recordKey = []
         self.recordedshortcut = {"Key.alt_lz": 2} # Key.alt_lz is default shortcut
@@ -122,6 +124,8 @@ class eventKeyboard():
 }
 
     def pressed(self,key):
+        if self.subFunctionDead:
+            return True
         self.keyPressReset = time.time()
         try:
             self.recordKey.append("{}".format(key.char))
@@ -160,13 +164,18 @@ class eventKeyboard():
         
         if time.time() - self.timeIntervalStart > 10.0:
             if self.activeFlag == -1: # check if main thread is active, if not, kill sub thread
+                self.subFunctionDead = True
                 self.__status = -1
+                self.recordKey.clear()
+                
                 return False
             else:
                 self.activeFlag = -1
                 self.timeIntervalStart = time.time()
 
     def released(self,key):
+        if self.subFunctionDead:
+            return True
         self.keyPressReset = time.time()
         try:
             tem = str(key.char)
@@ -191,11 +200,16 @@ class eventKeyboard():
         #     self.recordKey.remove("{}".format(key.char))
         # except:
         if len(self.recordKey) > 0:
-            self.recordKey.remove("{}".format(tem))
+            try:
+                self.recordKey.remove("{}".format(tem))
+            except:
+                self.recordKey.clear()
         
         if time.time() - self.timeIntervalStart > 10.0:
             if self.activeFlag == -1: # check if main thread is active, if not, kill sub thread
+                self.subFunctionDead = True
                 self.__status = -1
+                self.recordKey.clear()
                 return False
             else:
                 self.activeFlag = -1
@@ -208,7 +222,6 @@ class eventKeyboard():
 
         if self.__status == -1:
             self.terminate()
-            self.recordKey = []
             self.keyPressed = pynput.keyboard.Listener(on_press=self.pressed, on_release=self.released)
             
         self.__status = 1
@@ -216,6 +229,8 @@ class eventKeyboard():
         self.timeIntervalStart = time.time()
         self.begin = time.time() - 5
         self.keyPressReset = time.time()
+        self.recordKey = []
+        self.subFunctionDead = False
 
     def terminate(self) -> None:
         self.keyPressed.stop()
@@ -433,7 +448,7 @@ class windowsUI():
                  width=-1, height=-1, positionX=0, positionY=0, listener: eventMouse = None) -> None:
         # self.__timeList=[time.time(),0]
         self.test = False # enable test code
-        self.testNum = 3
+        self.testNum = 0
         
         self.listener = eventMouse()
         self.keyBoardInterrupt = eventKeyboard()
@@ -484,6 +499,7 @@ find out text boxes"], ["Please choose one of model to filter out error location
         self.specialData = 0
         
         self.temFileName = ""
+        
         
         # Store the buttons on main Panel and their status ID
         self.currentButton: list[tkinter.Button] = []
@@ -546,6 +562,7 @@ find out text boxes"], ["Please choose one of model to filter out error location
         
         self.currentColumnNum = -1
         self.temForm = dict()
+        
         
         # testButton = tkinter.Button(self.__root, text="tester")
         # font = Font(testButton["font"])  # get font information
@@ -1117,7 +1134,7 @@ find out text boxes"], ["Please choose one of model to filter out error location
                 self.positionY = 50
                 
                 rowNumber = 1
-                columnNum = 3
+                columnNum = 5
                 com = ttk.Combobox(self.__root)     # #创建下拉菜单
                 com.place(x = 0, y = 0)     # #将下拉菜单绑定到窗体
                 self.__root.update()
@@ -1130,7 +1147,7 @@ find out text boxes"], ["Please choose one of model to filter out error location
                 titleKeys = list(self.mapForm.keys())
                 
                 self.currentOtherWidgets.append(ttk.Combobox(self.__root))
-                self.currentOtherWidgets[-1]["value"] = titleKeys
+                self.currentOtherWidgets[-1]["value"] = ["If..."] + titleKeys
                 self.currentOtherWidgets[-1].current(0)
                 
                 self.currentOtherWidgets[-1].place(x=(self.width - width*columnNum - \
@@ -1151,9 +1168,26 @@ find out text boxes"], ["Please choose one of model to filter out error location
                 self.currentOtherWidgets[-1].place(x=(self.width - width*columnNum - \
                     1*(columnNum-1)) / 2 + 2*(width + 1), y=(self.height - height*rowNumber\
                         - 1*(rowNumber-1)) / 2 + 0*(height+1))
+                
+                self.currentOtherWidgets.append(ttk.Combobox(self.__root))
+                self.currentOtherWidgets[-1]["value"] = ["Then..."] + [self.formDataDesicion[1]] + ["Do nothing"]
+                self.currentOtherWidgets[-1].current(0)
+                
+                self.currentOtherWidgets[-1].place(x=(self.width - width*columnNum - \
+                    1*(columnNum-1)) / 2 + 3*(width + 1), y=(self.height - height*rowNumber\
+                        - 1*(rowNumber-1)) / 2 + 0*(height+1))
+                
+                
+                self.currentOtherWidgets.append(ttk.Combobox(self.__root))
+                self.currentOtherWidgets[-1]["value"] = ["Else..."] + [self.formDataDesicion[1]] + ["Do nothing"]
+                self.currentOtherWidgets[-1].current(0)
+                
+                self.currentOtherWidgets[-1].place(x=(self.width - width*columnNum - \
+                    1*(columnNum-1)) / 2 + 4*(width + 1), y=(self.height - height*rowNumber\
+                        - 1*(rowNumber-1)) / 2 + 0*(height+1))
                         
-                x = "Please decide \
-condition between two column.(or a number and a column). Column: " + titleKeys[self.formConditionSelection[self.specialData]]
+                x = "Please decide condition between two column and the operation when \
+condition is met.(or a number and a column). Column: " + titleKeys[self.formConditionSelection[self.specialData]]
                 self.currentLabel.append(tkinter.Label(self.__root, text=x, fg="white", bg="black"))
     
                 font = Font(font=self.currentLabel[-1]["font"])  # get font information
@@ -1299,9 +1333,10 @@ condition between two column.(or a number and a column). Column: " + titleKeys[s
             print(self.userInteraction.recoredBehaviours)
             self.layOutController("record", 1, "root")
             if self.__subWindows == None:
-                self.subWindowCreater(int(self.__root.winfo_screenwidth() / 6), int(self.width * 2 / 1),\
-                    x = int(self.__root.winfo_screenwidth() - self.__root.winfo_screenwidth() / 5), \
-                        y = 50, scrollBar = True, backup = False)
+                self.subWindowInfo = (int(self.__root.winfo_screenwidth() / 6), int(self.width * 2 / 1),\
+                    int(self.__root.winfo_screenwidth() - self.__root.winfo_screenwidth() / 5), 50)
+                self.subWindowCreater(self.subWindowInfo[0], self.subWindowInfo[1], \
+                    x = self.subWindowInfo[2], y = self.subWindowInfo[3], scrollBar = True, backup = False)
             self.statusID = 1010
             
         elif status == 1101:
@@ -1538,6 +1573,10 @@ find out all target text, please tell us the target text of the first line.(Pres
             self.__root.attributes("-alpha", 0)
             if self.__subWindows != None:
                 self.__subWindows.attributes("-alpha", 0)
+            self.__root.geometry("{0}x{1}+{2}+{3}" \
+                .format(self.width, self.height, 0-self.width, 0-self.height))
+            self.__subWindows.geometry("{2}+{3}" \
+                .format(0 - self.subWindowInfo[0], 0 - self.subWindowInfo[1]))
                 
             self.screenShotCreation()
             self.counter = 0
@@ -1575,6 +1614,9 @@ find out all target text, please tell us the target text of the first line.(Pres
                 
             self.__root.geometry("{0}x{1}+{2}+{3}" \
                 .format(self.width, self.height, 0-self.width, 0-self.height))
+            self.__subWindows.geometry("{2}+{3}" \
+                .format(0 - self.subWindowInfo[0], 0 - self.subWindowInfo[1]))
+            
 
             self.screenShotCreation()
             self.counter = 0
@@ -1786,20 +1828,33 @@ find out all target text, please tell us the target text of the first line.(Pres
                 self.width, self.height, self.positionX, self.positionY = self.windowSize["root"]
                 
                 self.statusID = -1
+        elif self.statusID == -1010:
+            if self.keyBoardInterrupt.statusGet() == 2:
+                self.x = -10
+                self.y = -10
+                self.screenShot = 2
+                self.widgetsCleaner(self.__canvas, self.screenShotor)
+                self.__rec.clear()
+                self.recoredArea.clear()
+                self.__root.attributes("-alpha", self.alpha)
+                if self.__subWindows != None:
+                    self.__subWindows.attributes("-alpha", self.alpha)
+                self.statusID = 1000
             
         if len(self.recoredArea) > 0 and self.testNum == 0 and self.test: # test
             tem = self.recoredArea.pop()
+            self.testScrollingArea = copy.deepcopy(tem)
             # text=self.ocr.areTextTransfer(tem)
             # textBoxes = self.ocr.textboxSeekerTrainer(tem, 50)
-            self.textBoxes = self.ocr.textboxSeekerPredictor(tem, 3, 0)
-            self.statusID = 3000
+            self.textBoxes = self.ocr.textboxSeekerPredictor(tem, 3, 0, True)
+            self.statusID = -1010
             self.screenShotCreation()
             counter = 0
             self.testNum = 2
             for x in self.textBoxes:
                 leftX = (x["left"] * self.width) / self.screen.width  # 转换相对坐标。
                 leftY = (x["top"] * self.height) / self.screen.height
-                
+
                 rightX = ((x["left"] + x["width"]) * self.width) / self.screen.width  # 转换相对坐标。
                 rightY = ((x["top"] + x["height"]) * self.height) / self.screen.height
                 if counter == 0:
@@ -1812,6 +1867,7 @@ find out all target text, please tell us the target text of the first line.(Pres
                 if counter % 3 == 0:
                     counter = 0
             print(self.recoredArea)
+            self.recoredArea.clear()
             # self.dbManagement.OCRModelDataSaver(self.ocr.centroids,\
             #     self.ocr.data, self.ocr.modelID, self.ocr.relativeDistance)
             
@@ -1868,47 +1924,79 @@ find out all target text, please tell us the target text of the first line.(Pres
             
         elif len(self.recoredArea) > 0 and self.testNum == 2 and self.test:
             result = []
-            for x in self.textBoxes:
-                tem = copy.deepcopy(self.recoredArea)
-                if len(self.ocr.relativeDistance[1]) == 0:
-                    print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
-                    result += self.ocr.textSeeker(tem, copy.deepcopy(x), {"top": 0, "left": 0, "width": \
-                        self.screen.width, "height": self.screen.height}, 1, "train", \
-                            self.textAreLowerBound - self.textAreUpperBound, self.textAreUpperBound, \
-                                self.textAreLowerBound)
-                else:
-                    print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
-                    result += self.ocr.textSeeker(tem, copy.deepcopy(x), {"top": 0, "left": 0, "width": \
-                        self.screen.width, "height": self.screen.height}, 1, "predict")
-            # text=self.ocr.areTextTransfer(tem)
-            # textBoxes = self.ocr.textboxSeekerTrainer(tem, 50)
-            # textBoxes = self.ocr.textboxSeekerPredictor(tem, 50, 0)
-            # self.ocr.textLocationTrainer(tem, {"top": 0, "left": 0, "width": \
-            #     self.screen.width, "height": self.screen.height})
-            self.statusID = 3000
-            self.screenShotCreation()
-            counter = 0
-            print(result)
-            for x in result:
-                leftX = (x["left"] * self.width) / self.screen.width  # 转换相对坐标。
-                leftY = (x["top"] * self.height) / self.screen.height
-                
-                rightX = ((x["left"] + x["width"]) * self.width) / self.screen.width  # 转换相对坐标。
-                rightY = ((x["top"] + x["height"]) * self.height) / self.screen.height
-                if counter == 0:
-                    self.rectangleCreation(leftX, leftY, rightX, rightY, "crimson")
-                elif counter == 1:
-                    self.rectangleCreation(leftX, leftY, rightX, rightY, "blue")
-                else:
-                    self.rectangleCreation(leftX, leftY, rightX, rightY, "green")
-                counter += 1
-                if counter % 3 == 0:
-                    counter = 0
-            self.ocr.textLocationPredictor(tem, {"top": 0, "left": 0, "width": \
-                self.screen.width, "height": self.screen.height}, 1)
-            
-            # self.testNum = 100
-            self.recoredArea.clear()
+            if len(self.textBoxes) >= 2:
+                firstBox = 1
+                lastBox = -1
+                print()
+                if len(self.temForm.keys()) == 0 or self.textBoxes[0]["top"] - self.testScrollingArea["top"] >= \
+                    self.testScrollingArea["height"] / 10:
+                    
+                    firstBox = 0
+                if self.testScrollingArea["top"] + self.testScrollingArea["height"] - \
+                    (self.textBoxes[-1]["top"] + self.textBoxes[-1]["height"]) >= \
+                    self.testScrollingArea["height"] / 10:
+                    
+                    lastBox = len(self.textBoxes)
+                    
+                for x in self.textBoxes[firstBox:lastBox]:
+                    tem = copy.deepcopy(self.recoredArea)
+                    if len(self.ocr.relativeDistance[1]) == 0:
+                        print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+                        result += self.ocr.textSeeker(tem, copy.deepcopy(x), {"top": 0, "left": 0, "width": \
+                            self.screen.width, "height": self.screen.height}, 1, "train", \
+                                self.textAreLowerBound - self.textAreUpperBound, self.textAreUpperBound, \
+                                    self.textAreLowerBound)
+                    else:
+                        print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+                        result += self.ocr.textSeeker(tem, copy.deepcopy(x), {"top": 0, "left": 0, "width": \
+                            self.screen.width, "height": self.screen.height}, 1, "predict")
+                textMatched = self.ocr.areTextTransfer(self.testScrollingArea, result, True, \
+                        self.imageFilterOut, self.indexFilterOut, (0,0,self.screen.width,self.screen.height))
+                # text=self.ocr.areTextTransfer(tem)
+                # textBoxes = self.ocr.textboxSeekerTrainer(tem, 50)
+                # textBoxes = self.ocr.textboxSeekerPredictor(tem, 50, 0)
+                # self.ocr.textLocationTrainer(tem, {"top": 0, "left": 0, "width": \
+                #     self.screen.width, "height": self.screen.height})
+                self.screenShotCreation()
+                counter = 0
+                print(result)
+                formCounter = 0
+                for x in range(len(result)):
+                    leftX = (result[x]["left"] * self.width) / self.screen.width  # 转换相对坐标。
+                    leftY = (result[x]["top"] * self.height) / self.screen.height
+
+                    rightX = ((result[x]["left"] + result[x]["width"]) * self.width) / self.screen.width  # 转换相对坐标。
+                    rightY = ((result[x]["top"] + result[x]["height"]) * self.height) / self.screen.height
+                    if counter == 0:
+                        self.rectangleCreation(leftX, leftY, rightX, rightY, "crimson")
+                    elif counter == 1:
+                        self.rectangleCreation(leftX, leftY, rightX, rightY, "blue")
+                    else:
+                        self.rectangleCreation(leftX, leftY, rightX, rightY, "green")
+                    counter += 1
+                    if counter % 3 == 0:
+                        counter = 0
+                    if formCounter not in self.temForm.keys():
+                        self.temForm[formCounter] = list()
+
+                    self.temForm[formCounter].append(textMatched[x])
+                    counter += 1
+                    formCounter += 1
+                    if counter % 3 == 0:
+                        counter = 0
+                    if formCounter % len(self.recoredArea) == 0:
+                        formCounter = 0
+
+
+                self.testNum = 4
+                if len(self.temForm.keys()) > 0:
+                    tem = []
+                    for x in range(len(self.temForm.keys())):
+                        tem.append(self.temForm[x][-1])
+                self.landMark = tem
+                self.landMarkPosition = self.textBoxes[lastBox-1]
+                self.recoredArea.clear()
+                self.statusID = -1000
             
         elif len(self.recoredArea) > 0 and self.testNum == 3 and self.test: # test
             print("----------------------")
@@ -1919,6 +2007,11 @@ find out all target text, please tell us the target text of the first line.(Pres
 
             # print(text)
             
+        elif len(self.recoredArea) > 0 and self.testNum == 4 and self.test:
+            print(self.landMark)
+            self.scollingRecognizeController(self.testScrollingArea, self.landMarkPosition, \
+                (self.testScrollingArea, 3, 0, True), self.landMark, "downward", 1) # tem, 3, self.testModelID, True
+            self.testNum = -1
     def eventAction(self) -> None:
 
         if self.statusID == 2000:
@@ -2229,6 +2322,8 @@ area cut some text. Is it correct?")
                 self.__root.geometry("{0}x{1}+{2}+{3}" \
                     .format(self.windowSize["record"][0], self.windowSize["record"][1], \
                         self.windowSize["record"][2], self.windowSize["record"][3]))
+                self.__subWindows.geometry("{2}+{3}" \
+                    .format(self.subWindowInfo[2], self.subWindowInfo[3]))
                 
                 self.messageBox = askquestion("RseMessager", "Are the results correct?")
                 
@@ -2422,9 +2517,100 @@ area cut some text. Is it correct?")
         self.textBoxes = self.ocr.textboxSeekerPredictor(*textBoxesParm) # tem, 3, self.testModelID, True
         
 
-    def scollingRecognizeController(self):
-        pass
-    
+    def scollingRecognizeController(self, scrollingArea:dict, landMarkCoord:dict, textBoxesParm: tuple, \
+        landMark:list[str] = None, direction = "upward", scrollingRatio = 1, scrollingEqualDelta = 0):
+        # textBoxesParam = (self.recoredArea, self.textBoxes, {"top": 0, "left": 0, "width": \
+        #     self.screen.width, "height": self.screen.height}, self.testModelID, "predict")
+        # landMark = None
+        # textNum = len(textSeekerParm[1])
+        # self.textBoxes = self.ocr.textboxSeekerPredictor(*textBoxesParm) # tem, 3, self.testModelID, True
+        # if len(self.textBoxes) >= 2:
+        #     if self.textBoxes[0]["top"] > textBoxesParm[0]["top"] + self.textBoxes[0]["height"]:
+        #         result = []
+        #         for x in self.textBoxes[:-1]:
+        #             # text positions, textBoxes, screenArea, testModelID, mode
+        #             result += self.ocr.textSeeker(*textSeekerParm)
+                
+                
+        #         textMatched = self.ocr.areTextTransfer(textBoxesParm[0], result, True, \
+        #             imageFilterOut, imageFilterOut, (0,0,self.screen.width,self.screen.height))
+        #         landMark = textMatched[:-1*textNum]
+        print("Scrolling...")
+        if landMark == None:
+            self.textBoxes = self.ocr.textboxSeekerPredictor(*textBoxesParm) # tem, 3, self.testModelID, True
+            if len(self.textBoxes) >= 2:
+                return True
+            else:
+                while len(self.textBoxes) < 2:
+                    if len(self.textBoxes) > 0:
+                        scrollDistance = int(self.textBoxes[0]["height"])
+                    else:
+                        scrollDistance = int(scrollingArea["height"]/10)
+                    self.IOController.mouse.position = ((scrollingArea["left"] + scrollingArea["width"])/2 ,\
+                        scrollingArea["top"] + scrollingArea["height"] - int(scrollingArea["height"]/10))
+                    time.sleep(0.1)
+                    self.IOController.mouse.press(Button.left)
+                    self.IOController.smooth((scrollingArea["left"] + scrollingArea["width"])/2 ,\
+                        scrollingArea["top"] + scrollingArea["height"] - int(scrollingArea["height"]/10) \
+                            - scrollDistance)
+                    time.sleep(0.1)
+                    self.IOController.mouse.release(Button.left)
+                    time.sleep(0.1)
+                return True
+        else:
+            landMarkUnCheckIndex = list(np.arange(len(landMark)))
+            scrollCounut = 1
+            positonBias = int(scrollingArea["height"]/10)
+            scrollDistance = int((landMarkCoord["top"] - scrollingArea["top"])/scrollingRatio \
+                + scrollingEqualDelta)
+            while scrollingArea["height"]*4/5 < scrollDistance:
+                scrollDistance = scrollDistance / 2
+                scrollCounut += 1
+            scrollDistance = int(scrollDistance)
+            for x in range(scrollCounut):
+                self.IOController.mouse.position = ((scrollingArea["left"] + scrollingArea["width"])/2 ,\
+                    scrollingArea["top"] + scrollingArea["height"] - int(scrollingArea["height"]/10))
+                time.sleep(0.1)
+                self.IOController.mouse.press(Button.left)
+                self.IOController.smooth((scrollingArea["left"] + scrollingArea["width"])/2 ,\
+                    scrollingArea["top"] + scrollingArea["height"] - int(scrollingArea["height"]/10) \
+                        - scrollDistance)
+                time.sleep(0.1)
+                self.IOController.mouse.release(Button.left)
+                time.sleep(0.1)
+            
+            while len(landMarkUnCheckIndex) > 0:
+                self.keyBoardInterrupt.activeFlagSet(1)
+                self.listener.activeFlagSet(1)
+                if self.keyBoardInterrupt.statusGet() == 2:
+                    return False
+                
+                print(landMarkUnCheckIndex)
+                allText = self.ocr.areTextTransfer(scrollingArea)
+                for x in range(len(allText)):
+                    counter = 0
+                    while counter < len(landMarkUnCheckIndex):
+                        print(Levenshtein.distance(allText[x], landMark[counter], score_cutoff=1))
+                        if Levenshtein.distance(allText[x], landMark[counter], score_cutoff=1) <= 1:
+                            print(landMark[counter])
+                            landMarkUnCheckIndex.pop(counter)
+                            counter -= 1
+                        counter += 1
+                    if counter == 0:
+                        return True
+                    
+                self.IOController.mouse.position = ((scrollingArea["left"] + scrollingArea["width"])/2 ,\
+                    scrollingArea["top"] + int(scrollingArea["height"]/10))
+                time.sleep(0.1)
+                self.IOController.mouse.press(Button.left)
+                self.IOController.smooth((scrollingArea["left"] + scrollingArea["width"])/2 ,\
+                    scrollingArea["top"] + int(scrollingArea["height"]/5)/scrollingRatio \
+                        + scrollingEqualDelta)
+                time.sleep(0.1)
+                self.IOController.mouse.release(Button.left)
+                time.sleep(0.1)
+
+            
 
 class mouse_control():
     def __init__(self):
@@ -2475,7 +2661,7 @@ class OCRController():
         # pytesseract.pytesseract.tesseract_cmd = r""
         self.sct = mss()
         self.currentPath = path
-        self.ocr = PaddleOCR(use_angle_cls = True, lang = "ch",
+        self.ocr = PaddleOCR(use_angle_cls = True, use_gpu = False, lang = "ch",
                 rec_model_dir = self.currentPath + "\\inference\\ch_PP-OCRv4_rec_infer\\",
                 cls_model_dir = self.currentPath + "\\inference\\ch_ppocr_mobile_v2.0_cls_infer\\",
                 det_model_dir = self.currentPath + "\\inference\\ch_PP-OCRv4_det_infer\\") 
@@ -2519,7 +2705,7 @@ class OCRController():
         screen = np.array(self.sct.grab(targetArea))
         image_rgb = cv2.cvtColor(screen, cv2.COLOR_BGR2RGB)
 
-        result = self.ocr.ocr(image_rgb, cls=True)
+        result = self.ocr.ocr(image_rgb, cls=False)
         # print(result)
         txts = []
         for x in result:
@@ -2801,7 +2987,7 @@ class OCRController():
                         counter += 1
                         result.append(None)
                         
-                if counter < len(result) and self.textLocationPredictor(textArea, screenArea, modelID):
+                if counter <= len(result)/2 and self.textLocationPredictor(textArea, screenArea, modelID):
                     self.relativeDistance[modelID].append(temRelativeDis)
                     break
             print(result, "<<<<<<<<<<<<<<<<<<<<<<")
@@ -2868,13 +3054,13 @@ class OCRController():
                 if textHeight == -1:
                     textHeight = lower - upper
                     
-                if self.textLocationPredictor(textArea, screenArea, modelID) and counter < len(result):
+                if self.textLocationPredictor(textArea, screenArea, modelID) and counter <= len(result)/2:
                     satisfyFlag.append(True)
                     break
-                elif self.textLocationPredictor(adjustAreaUpper, screenArea, modelID) and counterUpper < len(resultUpper):
+                elif self.textLocationPredictor(adjustAreaUpper, screenArea, modelID) and counterUpper <= len(resultUpper)/2:
                     satisfyFlag.append(True)
                     break
-                elif self.textLocationPredictor(adjustAreaLower, screenArea, modelID) and counterLower < len(resultLower):
+                elif self.textLocationPredictor(adjustAreaLower, screenArea, modelID) and counterLower <= len(resultLower)/2:
                     satisfyFlag.append(True)
                     break
                 else:
@@ -2993,6 +3179,14 @@ class edit_excel():
         self.backUpData = dict()
         self.currentForm = None
 
+    def is_real_number(self,string):
+        try:
+            float(string)
+            return True
+        except ValueError:
+            return False
+
+
     def dataTransferWrapper(self, fileName:str, mapList:list, primaryKeyIndex = [], pageTitle = [],\
         list_Title:list = [], specialDataIndex = []) -> None:
         # dataTitle = list(self.backUpData.keys())
@@ -3005,6 +3199,7 @@ class edit_excel():
             formData = self.infoSearch(fileName, primaryKeyIndex)
             
             operationList = []
+            conditionList = []
             disappearFlag = False
             
             for y in range(len(mapList)):
@@ -3019,60 +3214,56 @@ class edit_excel():
                         operation = mapList[y][2]
                         lantency = False
                         
-                        if formData == False:
-                            if firstNum < len(dataResult) and secondNum < len(dataResult):
-                                firstCol = dataResult[firstNum].replace("-", "", 1)
-                                secondCol = dataResult[secondNum].replace("-", "", 1)
-                                pattern = r"(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})"
-    
-                                matches1 = re.findall(pattern, dataResult[firstNum])
-                                matches2 = re.findall(pattern, dataResult[secondNum])
-                                
-                                colData1 = dataResult[firstNum]
-                                colData2 = dataResult[secondCol]
-                            
-                            elif firstNum not in specialDataIndex and secondNum not in specialDataIndex:
-                                firstCol = self.backUpData[[mapList[firstNum]][x]].replace("-", "", 1)
-                                secondCol = self.backUpData[[mapList[secondNum]][x]].replace("-", "", 1)
-                                pattern = r"(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})"
-    
-                                matches1 = re.findall(pattern, self.backUpData[[mapList[firstNum]][x]])
-                                matches2 = re.findall(pattern, self.backUpData[[mapList[secondNum]][x]])
-                                
-                                colData1 = self.backUpData[[mapList[firstNum]][x]]
-                                colData2 = self.backUpData[[mapList[secondNum]][x]]
-                        
-                            else:
-                                operationList.append(y)
-                                lantency = True
-                        else:
-                            firstCol = formData[firstNum].replace("-", "", 1)
-                            secondCol = formData[secondNum].replace("-", "", 1)
+                        # if formData == False:
+                        if firstNum < len(dataResult) and secondNum < len(dataResult):
+                            firstCol = dataResult[firstNum].replace("-", "", 1)
+                            secondCol = dataResult[secondNum].replace("-", "", 1)
                             pattern = r"(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})"
-    
-                            matches1 = re.findall(pattern, formData[firstNum])
-                            matches2 = re.findall(pattern, formData[secondNum])
+
+                            matches1 = re.findall(pattern, dataResult[firstNum])
+                            matches2 = re.findall(pattern, dataResult[secondNum])
                             
-                            colData1 = formData[firstNum]
-                            colData2 = formData[secondNum]
+                            colData1 = dataResult[firstNum]
+                            colData2 = dataResult[secondNum]
+                        
+                        elif firstNum not in specialDataIndex and secondNum not in specialDataIndex:
+                            firstCol = self.backUpData[[mapList[firstNum]][x]].replace("-", "", 1)
+                            secondCol = self.backUpData[[mapList[secondNum]][x]].replace("-", "", 1)
+                            pattern = r"(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})"
+
+                            matches1 = re.findall(pattern, self.backUpData[[mapList[firstNum]][x]])
+                            matches2 = re.findall(pattern, self.backUpData[[mapList[secondNum]][x]])
+                            
+                            colData1 = self.backUpData[[mapList[firstNum]][x]]
+                            colData2 = self.backUpData[[mapList[secondNum]][x]]
+                    
+                        else:
+                            operationList.append(y)
+                            lantency = True
+                        # else:
+                        #     firstCol = formData[firstNum].replace("-", "", 1)
+                        #     secondCol = formData[secondNum].replace("-", "", 1)
+                        #     pattern = r"(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})"
+    
+                        #     matches1 = re.findall(pattern, formData[firstNum])
+                        #     matches2 = re.findall(pattern, formData[secondNum])
+                            
+                        #     colData1 = formData[firstNum]
+                        #     colData2 = formData[secondNum]
                             
                         if not lantency:
-                            if firstCol.isdigital() and secondCol.isdigital():
+                            if self.is_real_number(firstCol) and self.is_real_number(secondCol):
                                 if operation == "-":
-                                    dataResult += [int(colData1) - \
-                                        int(colData2)]
+                                    dataResult += [float(colData1) - float(colData2)]
                                     updateIndexList.append(y)
                                 elif operation == "+":
-                                    dataResult += [int(colData1) + \
-                                        int(colData2)]
+                                    dataResult += [float(colData1) + float(colData2)]
                                     updateIndexList.append(y)
                                 elif operation == "x":
-                                    dataResult += [int(colData1) * \
-                                        int(colData2)]
+                                    dataResult += [float(colData1) * float(colData2)]
                                     updateIndexList.append(y)
                                 elif operation == "÷":
-                                    dataResult += [int(colData1) / \
-                                        int(colData2)]
+                                    dataResult += [float(colData1) / float(colData2)]
                                     updateIndexList.append(y)
 
                             elif len(matches1) == 1 and len(matches2) == 1:
@@ -3090,12 +3281,11 @@ class edit_excel():
 
                                     dataResult += [str(time_diff)]
                                     updateIndexList.append(y)
-                                elif operation == "+":
-                                    pass
-                                elif operation == "x":
-                                    pass
-                                elif operation == "÷":
-                                    pass
+                        else:
+                            if formData != False:
+                                dataResult += [formData[y]]
+                            else:
+                                dataResult += ["placeHolder"]
                         
                     elif mapList[y][0] == "--==//time--==//":
                         if mapList[y][1] == "Time appear on list YY:MM:DD:H:M:S":
@@ -3118,17 +3308,392 @@ class edit_excel():
                                 dataResult += [formatted_time]
                                 updateIndexList.append(y)
                             else:
-                                dataResult += ["placeHolder"]
+                                if formData != False:
+                                    dataResult += [formData[y]]
+                                else:
+                                    dataResult += ["placeHolder"]
 
                         elif mapList[y][1] == "Time disappear from list YY:MM:DD:H:M:S":
-                            dataResult += ["placeHolder"]
+                            if formData != False:
+                                dataResult += [formData[y]]
+                            else:
+                                dataResult += ["placeHolder"]
+                                
                             if y not in disappearIndex:
                                 disappearIndex.add(y)
                                 disappearFlag = True
                             
                     elif mapList[y][0] == "--==//special condition--==//":
-                        pass
+                        if mapList[y][1] not in list_Title:
+                            firstNum = None
+                        else:
+                            firstNum = list_Title.index(mapList[y][1])
                             
+                        if mapList[y][3] not in list_Title:
+                            secondNum = None
+                        else:
+                            secondNum = list_Title.index(mapList[y][3])
+                        
+                        operation = mapList[y][2]
+                        lantency = False
+                        
+                        if firstNum == None:
+                            firstCol = mapList[y][1].replace("-", "", 1)
+                            pattern = r"(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})"
+
+                            matches1 = re.findall(pattern, mapList[y][1])
+                            
+                            if len(matches1) == 0:
+                                pattern = r"(-?\d+) *days*, *(\d+):(\d+):(\d+)"
+
+                                matches1 = re.findall(pattern, mapList[y][1])
+                                if len(matches1) > 0:
+                                    colData1 = matches1[0]*24*60*60 + matches1[1]*60*60 + matches1[2]*60 + matches1[3]
+                                else:
+                                    colData1 = mapList[y][1]
+                            else:
+                                time1 = datetime.strptime(mapList[y][1], "%Y-%m-%d %H:%M:%S")
+                                colData1 = time1.timestamp()
+                            
+                            
+                        elif firstNum < len(dataResult):
+                            firstCol = dataResult[firstNum].replace("-", "", 1)
+
+                            pattern = r"(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})"
+
+                            matches1 = re.findall(pattern, dataResult[firstNum])
+                            if len(matches1) == 0:
+                                pattern = r"(-?\d+) *days*, *(\d+):(\d+):(\d+)"
+
+                                matches1 = re.findall(pattern, dataResult[firstNum])
+                                if len(matches1) > 0:
+                                    colData1 = matches1[0]*24*60*60 + matches1[1]*60*60 + matches1[2]*60 + matches1[3]
+                                else:
+                                    colData1 = dataResult[firstNum]
+                            else:
+                                time1 = datetime.strptime(dataResult[firstNum], "%Y-%m-%d %H:%M:%S")
+                                colData1 = time1.timestamp()
+                                
+                            
+                        else:
+                            lantency = True
+                            conditionList.append(y)
+                            
+                        if secondNum == None:
+                            secondCol = mapList[y][3].replace("-", "", 1)
+                            pattern = r"(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})"
+                            matches2 = re.findall(pattern, mapList[y][3])
+                            
+                            if len(matches2) == 0:
+                                pattern = r"(-?\d+) *days*, *(\d+):(\d+):(\d+)"
+
+                                matches2 = re.findall(pattern, mapList[y][3])
+                                if len(matches2) > 0:
+                                    colData2 = matches2[0]*24*60*60 + matches2[1]*60*60 + matches2[2]*60 + matches2[3]
+                                else:
+                                    colData2 = mapList[y][3]
+                            else:
+                                time2 = datetime.strptime(mapList[y][3], "%Y-%m-%d %H:%M:%S")
+                                colData2 = time2.timestamp()
+                            
+                        elif secondNum < len(dataResult):
+                            secondCol = dataResult[secondNum].replace("-", "", 1)
+                            pattern = r"(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})"
+                            matches2 = re.findall(pattern, dataResult[secondNum])
+                            if len(matches2) == 0:
+                                pattern = r"(-?\d+) *days*, *(\d+):(\d+):(\d+)"
+
+                                matches2 = re.findall(pattern, dataResult[secondNum])
+                                if len(matches2) > 0:
+                                    colData2 = matches2[0]*24*60*60 + matches2[1]*60*60 + matches2[2]*60 + matches2[3]
+                                else:
+                                    colData2 = dataResult[secondNum]
+                            else:
+                                time2 = datetime.strptime(dataResult[secondNum], "%Y-%m-%d %H:%M:%S")
+                                colData2 = time2.timestamp()
+                            
+                        else:
+                            if not lantency:
+                                lantency = True
+                                conditionList.append(y)
+                            
+                        codition = False
+                        if not lantency:
+                            if self.is_real_number(firstCol) and self.is_real_number(secondCol):
+                                if operation == ">":
+                                    codition = float(colData1) > float(colData2)
+                                elif operation == ">=":
+                                    codition = float(colData1) >= float(colData2)
+                                elif operation == "<":
+                                    codition = float(colData1) < float(colData2)
+                                elif operation == "<=":
+                                    codition = float(colData1) <= float(colData2)
+                            elif operation == "==":
+                                codition = colData1 == colData2
+                                
+                            if codition:
+                                if mapList[y][4] == "Do nothing":
+                                    if formData != False:
+                                        dataResult += [formData[y]]
+                                    else:
+                                        dataResult += ["placeHolder"]
+                                elif mapList[y][4] == "--==//time--==//":
+                                    currentTime = time.localtime(time.time())
+                                    year = currentTime.tm_year  # last two digits of the year
+                                    month = currentTime.tm_mon
+                                    day = currentTime.tm_mday
+                                    hours = currentTime.tm_hour
+                                    minutes = currentTime.tm_min
+                                    seconds = currentTime.tm_sec
+                                
+                                    # Format the time components as YY-MM-DD-Hours-Minutes-Seconds (int)
+                                    formatted_time = "{:02d}-{:02d}-{:02d}-{:02d}-{:02d}-{:02d}".format(year, month, day, hours, minutes, seconds)
+                                    dataResult += [formatted_time]
+                                    updateIndexList.append(y)
+                                else:
+                                    dataResult += [mapList[y][4]]
+                                    updateIndexList.append(y)
+                            else:
+                                if mapList[y][5] == "Do nothing":
+                                    if formData != False:
+                                        dataResult += [formData[y]]
+                                    else:
+                                        dataResult += ["placeHolder"]
+                                elif mapList[y][5] == "--==//time--==//":
+                                    currentTime = time.localtime(time.time())
+                                    year = currentTime.tm_year  # last two digits of the year
+                                    month = currentTime.tm_mon
+                                    day = currentTime.tm_mday
+                                    hours = currentTime.tm_hour
+                                    minutes = currentTime.tm_min
+                                    seconds = currentTime.tm_sec
+                                
+                                    # Format the time components as YY-MM-DD-Hours-Minutes-Seconds (int)
+                                    formatted_time = "{:02d}-{:02d}-{:02d}-{:02d}-{:02d}-{:02d}".format(year, month, day, hours, minutes, seconds)
+                                    dataResult += [formatted_time]
+                                    updateIndexList.append(y)
+                                else:
+                                    dataResult += [mapList[y][5]]
+                                    updateIndexList.append(y)
+                        else:
+                            if formData != False:
+                                dataResult += [formData[y]]
+                            else:
+                                dataResult += ["placeHolder"]
+                            
+                            
+            if disappearFlag:
+                self.disappearanceCheck(fileName, primaryKeyIndex, list(disappearIndex))
+            if len(operationList) > 0:
+                for y in operationList:
+                    firstNum = list_Title.index(mapList[y][1])
+                    secondNum = list_Title.index(mapList[y][3])
+
+                    operation = mapList[y][2]
+
+                    # if formData == False:
+                    if firstNum < len(dataResult) and secondNum < len(dataResult):
+                        firstCol = dataResult[firstNum].replace("-", "", 1)
+                        secondCol = dataResult[secondNum].replace("-", "", 1)
+                        pattern = r"(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})"
+
+                        matches1 = re.findall(pattern, dataResult[firstNum])
+                        matches2 = re.findall(pattern, dataResult[secondNum])
+
+                        colData1 = dataResult[firstNum]
+                        colData2 = dataResult[secondNum]
+
+                    elif firstNum not in specialDataIndex and secondNum not in specialDataIndex:
+                        firstCol = self.backUpData[[mapList[firstNum]][x]].replace("-", "", 1)
+                        secondCol = self.backUpData[[mapList[secondNum]][x]].replace("-", "", 1)
+                        pattern = r"(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})"
+
+                        matches1 = re.findall(pattern, self.backUpData[[mapList[firstNum]][x]])
+                        matches2 = re.findall(pattern, self.backUpData[[mapList[secondNum]][x]])
+
+                        colData1 = self.backUpData[[mapList[firstNum]][x]]
+                        colData2 = self.backUpData[[mapList[secondNum]][x]]
+                    if self.is_real_number(firstCol) and self.is_real_number(secondCol):
+                        if operation == "-":
+                            dataResult[y] = float(colData1) - float(colData2)
+                            updateIndexList.append(y)
+                        elif operation == "+":
+                            dataResult[y] = float(colData1) + float(colData2)
+                            updateIndexList.append(y)
+                        elif operation == "x":
+                            dataResult[y] = float(colData1) * float(colData2)
+                            updateIndexList.append(y)
+                        elif operation == "÷":
+                            dataResult[y] = float(colData1) / float(colData2)
+                            updateIndexList.append(y)
+                    #
+                    elif len(matches1) == 1 and len(matches2) == 1:
+                        if operation == "-":
+                            time1 = datetime.strptime(colData1, \
+                                "%Y-%m-%d %H:%M:%S")
+                            time2 = datetime.strptime(colData2, \
+                                "%Y-%m-%d %H:%M:%S")
+                    #
+                            # Calculate the time difference
+                            time_diff = time1 - time2
+                    #
+                            # Extract the desired units
+                            print(str(time_diff))
+                    #
+                            dataResult[y] = str(time_diff)
+                            updateIndexList.append(y)
+                            
+            if len(conditionList) > 0:
+                for y in conditionList:
+                    if mapList[y][1] not in list_Title:
+                        firstNum = None
+                    else:
+                        firstNum = list_Title.index(mapList[y][1])
+
+                    if mapList[y][3] not in list_Title:
+                        secondNum = None
+                    else:
+                        secondNum = list_Title.index(mapList[y][3])
+
+
+                    if firstNum == None:
+                        firstCol = mapList[y][1].replace("-", "", 1)
+                        pattern = r"(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})"
+                        #
+                        matches1 = re.findall(pattern, mapList[y][1])
+
+                        if len(matches1) == 0:
+                            pattern = r"(-?\d+) *days*, *(\d+):(\d+):(\d+)"
+                                #
+                            matches1 = re.findall(pattern, mapList[y][1])
+                            if len(matches1) > 0:
+                                colData1 = matches1[0]*24*60*60 + matches1[1]*60*60 + matches1[2]*60 + matches1[3]
+                            else:
+                                colData1 = mapList[y][1]
+                        else:
+                            time1 = datetime.strptime(mapList[y][1], "%Y-%m-%d %H:%M:%S")
+                            colData1 = time1.timestamp()
+
+
+                    elif firstNum < len(dataResult):
+                        firstCol = dataResult[firstNum].replace("-", "", 1)
+                            #
+                        pattern = r"(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})"
+                    #
+                        matches1 = re.findall(pattern, dataResult[firstNum])
+                        if len(matches1) == 0:
+                            pattern = r"(-?\d+) *days*, *(\d+):(\d+):(\d+)"
+                    #
+                            matches1 = re.findall(pattern, dataResult[firstNum])
+                            if len(matches1) > 0:
+                                colData1 = matches1[0]*24*60*60 + matches1[1]*60*60 + matches1[2]*60 + matches1[3]
+                            else:
+                                colData1 = dataResult[firstNum]
+                        else:
+                            time1 = datetime.strptime(dataResult[firstNum], "%Y-%m-%d %H:%M:%S")
+                            colData1 = time1.timestamp()
+
+
+
+                    if secondNum == None:
+                        secondCol = mapList[y][3].replace("-", "", 1)
+                        pattern = r"(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})"
+                        matches2 = re.findall(pattern, mapList[y][3])
+
+                        if len(matches2) == 0:
+                            pattern = r"(-?\d+) *days*, *(\d+):(\d+):(\d+)"
+                        #
+                            matches2 = re.findall(pattern, mapList[y][3])
+                            if len(matches2) > 0:
+                                colData2 = matches2[0]*24*60*60 + matches2[1]*60*60 + matches2[2]*60 + matches2[3]
+                            else:
+                                colData2 = mapList[y][3]
+                        else:
+                            time2 = datetime.strptime(mapList[y][3], "%Y-%m-%d %H:%M:%S")
+                            colData2 = time2.timestamp()
+
+                    elif secondNum < len(dataResult):
+                        secondCol = dataResult[secondNum].replace("-", "", 1)
+                        pattern = r"(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})"
+                        matches2 = re.findall(pattern, dataResult[secondNum])
+                        if len(matches2) == 0:
+                            pattern = r"(-?\d+) *days*, *(\d+):(\d+):(\d+)"
+                        #
+                            matches2 = re.findall(pattern, dataResult[secondNum])
+                            if len(matches2) > 0:
+                                colData2 = matches2[0]*24*60*60 + matches2[1]*60*60 + matches2[2]*60 + matches2[3]
+                            else:
+                                colData2 = dataResult[secondNum]
+                        else:
+                            time2 = datetime.strptime(dataResult[secondNum], "%Y-%m-%d %H:%M:%S")
+                            colData2 = time2.timestamp()
+
+
+                    codition = False
+                    if self.is_real_number(firstCol) and self.is_real_number(secondCol):
+                        if operation == ">":
+                            codition = float(colData1) > float(colData2)
+                        elif operation == ">=":
+                            codition = float(colData1) >= float(colData2)
+                        elif operation == "<":
+                            codition = float(colData1) < float(colData2)
+                        elif operation == "<=":
+                            codition = float(colData1) <= float(colData2)
+                    elif operation == "==":
+                        codition = colData1 == colData2
+
+                    if codition:
+                        if mapList[y][4] == "Do nothing":
+                            if formData != False:
+                                dataResult[y] = formData[y]
+                            else:
+                                dataResult[y] = "placeHolder"
+                        elif mapList[y][4] == "--==//time--==//":
+                            currentTime = time.localtime(time.time())
+                            year = currentTime.tm_year  # last two digits of the year
+                            month = currentTime.tm_mon
+                            day = currentTime.tm_mday
+                            hours = currentTime.tm_hour
+                            minutes = currentTime.tm_min
+                            seconds = currentTime.tm_sec
+
+                            # Format the time components as YY-MM-DD-Hours-Minutes-Seconds (int)
+                            formatted_time = "{:02d}-{:02d}-{:02d}-{:02d}-{:02d}-{:02d}".format(year, month, day, hours, minutes, seconds)
+                            dataResult[y] = formatted_time
+                            updateIndexList.append(y)
+                        else:
+                            dataResult[y] = mapList[y][4]
+                            updateIndexList.append(y)
+                    else:
+                        if mapList[y][5] == "Do nothing":
+                            if formData != False:
+                                dataResult[y] = formData[y]
+                            else:
+                                dataResult[y] = "placeHolder"
+                        elif mapList[y][5] == "--==//time--==//":
+                            currentTime = time.localtime(time.time())
+                            year = currentTime.tm_year  # last two digits of the year
+                            month = currentTime.tm_mon
+                            day = currentTime.tm_mday
+                            hours = currentTime.tm_hour
+                            minutes = currentTime.tm_min
+                            seconds = currentTime.tm_sec
+
+                            # Format the time components as YY-MM-DD-Hours-Minutes-Seconds (int)
+                            formatted_time = "{:02d}-{:02d}-{:02d}-{:02d}-{:02d}-{:02d}".format(year, month, day, hours, minutes, seconds)
+                            dataResult[y] = formatted_time
+                            updateIndexList.append(y)
+                        else:
+                            dataResult[y] = mapList[y][5]
+                            updateIndexList.append(y)
+            
+            for y in list(disappearIndex):
+                if formData != False:
+                    dataResult[y] = formData[y]
+                else:
+                    dataResult[y] = "placeHolder"
+
+            self.edit_member_information(dataResult)
         # for x in specialDataIndex:
         #     if mapList[x][0] == "--==//binary operation--==//":
         #         if mapList[x][1] == "Time appear on list YY:MM:DD:H:M:S":
@@ -3170,12 +3735,25 @@ class edit_excel():
             return False
         
         if fileName == "人员信息统计.xlsx":
-            currentExistKeys = set(self.backUpData[keysIndex[0]])
-            formLabel = self.allMemberLabel()
-            for x in range(formLabel):
-                if formLabel[x] not in currentExistKeys:
-                    if len(addTimeLineTo) > 0:
-                        addTimeLineTo[0]
+            currentExistKeys = np.array(self.backUpData[keysIndex[0]])
+            formLabel = np.array(self.allMemberLabel())
+            filtered_array = np.setdiff1d(formLabel, currentExistKeys)
+            if len(addTimeLineTo) > 0:
+                formData = self.search_member_information(list(filtered_array))
+                currentTime = time.localtime(time.time())
+                year = currentTime.tm_year  # last two digits of the year
+                month = currentTime.tm_mon
+                day = currentTime.tm_mday
+                hours = currentTime.tm_hour
+                minutes = currentTime.tm_min
+                seconds = currentTime.tm_sec
+            
+                # Format the time components as YY-MM-DD-Hours-Minutes-Seconds (int)
+                formatted_time = "{:02d}-{:02d}-{:02d}-{:02d}-{:02d}-{:02d}".format(year, month, day, hours, minutes, seconds)
+                for x in range(len(formData)):
+                    formData[x][addTimeLineTo[0]] = copy.deepcopy(formatted_time)
+                
+                self.edit_member_information(formData)
             
         return True
 
@@ -3554,11 +4132,16 @@ if __name__ == "__main__":
     # ocr=OCRController(os.getcwd())
     # text=ocr.textboxSeekerTrainer({"top": 0, "left": 0, "width": 1920, "height": 1080})
     # print(text)
-    test = edit_excel()
+    # test = edit_excel()
 
     
-    # test.new_data_excel(member_list=["sk", "#YHHJJK","000","01","1","T"], mod = 1)
-    print(test.search_member_information("#YHHJJK"))
+    # # test.new_data_excel(member_list=["sk", "#YHHJJK","000","01","1","T"], mod = 1)
+    # print(test.search_member_information("#YHHJJK"))
+    
+    dbManagement = edit_excel()
+    a = OCRController(dbManagement.currentPath, dbManagement.OCRModelDataLoader())
+    
+    print(a.areTextTransfer({"top": 0, "left": 0, "width": 1920, "height": 1080}))
     # test.new_data_excel(["C1 P1"], \
     #     ["参战标记","标签","进攻编号","胜利之星", "三星", "摧毁率", "验贡献"], \
     #         ["1","#YS41335","2","2", "0", "78%", "15"])
