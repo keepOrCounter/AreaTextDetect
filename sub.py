@@ -499,6 +499,9 @@ find out text boxes"], ["Please choose one of model to filter out error location
         self.formConditionSelection = []
         self.specialData = 0
         
+        self.displacementMouse = 0
+        self.displacementCount = 0
+        
         self.temFileName = ""
         
         
@@ -1576,8 +1579,8 @@ find out all target text, please tell us the target text of the first line.(Pres
                 self.__subWindows.attributes("-alpha", 0)
             self.__root.geometry("{0}x{1}+{2}+{3}" \
                 .format(self.width, self.height, 0-self.width, 0-self.height))
-            self.__subWindows.geometry("{0}+{1}" \
-                .format(0 - self.subWindowInfo[0], 0 - self.subWindowInfo[1]))
+            self.__subWindows.geometry("{0}x{1}+{2}+{3}" \
+                .format(self.subWindowInfo[0], self.subWindowInfo[1], 0 - self.subWindowInfo[0], 0 - self.subWindowInfo[1]))
                 
             self.screenShotCreation()
             self.counter = 0
@@ -1615,8 +1618,8 @@ find out all target text, please tell us the target text of the first line.(Pres
                 
             self.__root.geometry("{0}x{1}+{2}+{3}" \
                 .format(self.width, self.height, 0-self.width, 0-self.height))
-            self.__subWindows.geometry("{0}+{1}" \
-                .format(0 - self.subWindowInfo[0], 0 - self.subWindowInfo[1]))
+            self.__subWindows.geometry("{0}x{1}+{2}+{3}" \
+                .format(self.subWindowInfo[0], self.subWindowInfo[1], 0 - self.subWindowInfo[0], 0 - self.subWindowInfo[1]))
             
 
             self.screenShotCreation()
@@ -1791,7 +1794,7 @@ find out all target text, please tell us the target text of the first line.(Pres
 
         elif status == 7100:
             self.messageBox = showinfo("RseMessager", "Almost done! We now need to adjust \
-scorlling program. Please press key 'alt+z' when the following line of data approach to the \
+scorlling program by 3 test. Please press key 'alt+z' when the following line of data approach to the \
 top of scrolling area(Please do not make its text box attached to the top of scrolling area).\n \
     Data:\n \
         " + str(self.landMark))
@@ -2391,7 +2394,7 @@ area cut some text. Is it correct?")
                 self.loopCounter = ([],[],[],[])
                 self.statusID = 4000
         
-        elif 7004 >self.statusID >= 7001:
+        elif 7004 > self.statusID >= 7001:
             self.counter += 1
             if self.keyBoardInterrupt.statusGet()== 2:
                 self.IOController.mouse.position = (self.screen.width - 1, self.screen.height + 1)
@@ -2400,7 +2403,7 @@ area cut some text. Is it correct?")
                 screen = np.array(self.ocr.sct.grab(self.testScrollingArea))
                 image_rgb = cv2.cvtColor(screen, cv2.COLOR_BGR2RGB)
 
-                result = self.ocr.ocr(image_rgb, cls=False)
+                result = self.ocr.ocr.ocr(image_rgb, cls=False)
                 # print(result)
                 txts = []
                 boxes = []
@@ -2427,12 +2430,17 @@ area cut some text. Is it correct?")
                     counter = 0
                     for y in range(len(targetBoxes)):
                         overlap_area = self.ocr.calculate_overlap([self.textBoxes[x]["left"], \
-                            self.textBoxes[x]["top"], self.textBoxes[x]["left"] + tem["width"], \
-                                self.textBoxes[x]["top"] + tem["height"]], \
+                            self.textBoxes[x]["top"], self.textBoxes[x]["left"] + self.textBoxes[x]["width"], \
+                                self.textBoxes[x]["top"] + self.textBoxes[x]["height"]], \
                                     targetBoxes[y][0] + targetBoxes[y][2])
+                        print(overlap_area)
+                        print([self.textBoxes[x]["left"], \
+                            self.textBoxes[x]["top"], self.textBoxes[x]["left"] + self.textBoxes[x]["width"], \
+                                self.textBoxes[x]["top"] + self.textBoxes[x]["height"]], \
+                                    targetBoxes[y][0] + targetBoxes[y][2])
+                        print("++++++++++++++++++++++++")
                         if overlap_area > 0.9 * (targetBoxes[y][2][0] - targetBoxes[y][0][0]) * \
                             (targetBoxes[y][2][1] - targetBoxes[y][0][1]):
-                            
                             counter += 1
                     if counter >= len(targetBoxes):
                         textBoxesResult = self.textBoxes[x]
@@ -2442,36 +2450,44 @@ area cut some text. Is it correct?")
                     print(textBoxesResult["top"] - self.landMarkPosition["top"])
                     print(self.displacementMouse)
                     print(self.displacementMouse/(textBoxesResult["top"] - self.landMarkPosition["top"]))
-                    print(self.displacementMouse - (textBoxesResult["top"] - self.landMarkPosition["top"]))
+                    print((self.displacementMouse - (textBoxesResult["top"] - self.landMarkPosition["top"])) * self.displacementCount)
+                self.statusID += 1
+                    
+                # self.sequencialCommand[2][0], textbox, self.sequencialCommand[2][2], self.sequencialCommand[2][3], \
+                #     "predict", self.sequencialCommand[2][5], self.sequencialCommand[2][6], self.sequencialCommand[2][7]
+                if 7004 > self.statusID >= 7001:
+                    result = []
+                    for x in self.textBoxes[1:-1]:
+                        if len(self.ocr.relativeDistance[self.testModelID]) == 0:
+                            print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+                            result += self.ocr.textSeeker(self.sequencialCommand[2][0], copy.   deepcopy(x),\
+                                self.sequencialCommand[2][2], self.sequencialCommand[2][3],     "train", \
+                                    self.sequencialCommand[2][5], self.sequencialCommand[2][6], \
+                                        self.sequencialCommand[2][7])
+                        else:
+                            print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+                            result += self.ocr.textSeeker(self.sequencialCommand[2][0], copy.   deepcopy(x), \
+                                self.sequencialCommand[2][2], self.sequencialCommand[2][3],     "predict")
+
+
+                    textMatched = self.ocr.areTextTransfer(self.testScrollingArea, result, True, \
+                        self.imageFilterOut, self.indexFilterOut, (0,0,self.screen.width,self.  screen.height))
+
+
+                    tem = []
+                    for x in range(len(self.landMark)):
+                        tem.append(textMatched[-1 * len(self.landMark) + x])
+                    self.landMark = tem
+                    self.landMarkPosition = self.textBoxes[-1]
+                    self.displacementMouse = 0
+                    self.displacementCount = 0
+
+                    tem = self.statusID
                     self.statusID = -1
-                #     self.statusID += 1
-                    
-                # # self.sequencialCommand[2][0], textbox, self.sequencialCommand[2][2], self.sequencialCommand[2][3], \
-                # #     "predict", self.sequencialCommand[2][5], self.sequencialCommand[2][6], self.sequencialCommand[2][7]
-                # result = []
-                # for x in self.textBoxes[1:-1]:
-                #     if len(self.ocr.relativeDistance[self.testModelID]) == 0:
-                #         print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
-                #         result += self.ocr.textSeeker(self.sequencialCommand[2][0], copy.deepcopy(x),\
-                #             self.sequencialCommand[2][2], self.sequencialCommand[2][3], "train", \
-                #                 self.sequencialCommand[2][5], self.sequencialCommand[2][6], \
-                #                     self.sequencialCommand[2][7])
-                #     else:
-                #         print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
-                #         result += self.ocr.textSeeker(self.sequencialCommand[2][0], copy.deepcopy(x), \
-                #             self.sequencialCommand[2][2], self.sequencialCommand[2][3], "predict")
-                
-                
-                # textMatched = self.ocr.areTextTransfer(self.testScrollingArea, result, True, \
-                #     self.imageFilterOut, self.indexFilterOut, (0,0,self.screen.width,self.screen.height))
-                
-                    
-                # tem = []
-                # for x in range(len(self.landMark)):
-                #     tem.append(textMatched[-1 * len(self.landMark) + x])
-                # self.landMark = tem
-                # self.landMarkPosition = self.textBoxes[-1]
-                # self.displacementMouse = 0
+                    self.messageBox = showinfo("RseMessager", "This is our next test: \n \
+    Data:\n \
+        " + str(self.landMark))
+                    self.statusID = tem
                 
             elif self.counter % 3 == 0:
                 self.counter = 0
@@ -2484,8 +2500,22 @@ area cut some text. Is it correct?")
                 time.sleep(0.1)
                 self.IOController.mouse.release(Button.left)
                 self.displacementMouse += int(self.testScrollingArea["height"] * 1/10)
+                self.displacementCount += 1
                 time.sleep(0.1)
             
+            
+        elif self.statusID == 7004:
+            self.__root.attributes("-alpha", self.alpha)
+            if self.__subWindows != None:
+                self.__subWindows.attributes("-alpha", self.alpha)
+            self.__root.geometry("{0}x{1}+{2}+{3}" \
+                .format(self.windowSize["record"][0], self.windowSize["record"][1], \
+                    self.windowSize["record"][2], self.windowSize["record"][3]))
+            self.__subWindows.geometry("{0}x{1}+{2}+{3}" \
+                .format(self.subWindowInfo[0], self.subWindowInfo[1], self.subWindowInfo[2], self.subWindowInfo[3]))
+            
+            self.statusID = -1
+            self.Start(6402)
     
     def widgetsCleaner(self, *arrayLike:Iterable) -> None:
         for x in arrayLike:
@@ -3315,13 +3345,20 @@ class edit_excel():
         for x in range(len(self.backUpData[0])):
             dataResult = []
             updateIndexList = []
-            formData = self.infoSearch(fileName, primaryKeyIndex)
+            keysContent = [self.backUpData[z][x] for z in primaryKeyIndex]
+            print("key is", keysContent)
+            formData = self.infoSearch(fileName, keysContent)
+            if formData != False:
+                formData = formData[0]
+            print("found data is", formData)
             
+            appearIndex = []
             operationList = []
             conditionList = []
             disappearFlag = False
             
             for y in range(len(mapList)):
+                print("columns", y)
                 if y not in specialDataIndex:
                     dataResult += [self.backUpData[mapList[y]][x]]
                     updateIndexList.append(y)
@@ -3331,6 +3368,7 @@ class edit_excel():
                         secondNum = list_Title.index(mapList[y][3])
                         
                         operation = mapList[y][2]
+                        print(firstNum, secondNum, operation)
                         lantency = False
                         
                         # if formData == False:
@@ -3370,8 +3408,10 @@ class edit_excel():
                         #     colData1 = formData[firstNum]
                         #     colData2 = formData[secondNum]
                             
+                        print(lantency)
+                        print(colData1, colData2)
                         if not lantency:
-                            if self.is_real_number(firstCol) and self.is_real_number(secondCol):
+                            if self.is_real_number(colData1) and self.is_real_number(colData2):
                                 if operation == "-":
                                     dataResult += [float(colData1) - float(colData2)]
                                     updateIndexList.append(y)
@@ -3384,6 +3424,8 @@ class edit_excel():
                                 elif operation == "÷":
                                     dataResult += [float(colData1) / float(colData2)]
                                     updateIndexList.append(y)
+                                else:
+                                    dataResult += ["placeHolder"]
 
                             elif len(matches1) == 1 and len(matches2) == 1:
                                 if operation == "-":
@@ -3396,10 +3438,17 @@ class edit_excel():
                                     time_diff = time1 - time2
 
                                     # Extract the desired units
-                                    print(str(time_diff))
+                                    timeResult = str(time_diff)
+                                    print(timeResult)
+                                    if "day" not in timeResult:
+                                        timeResult = "0 days, " + timeResult
 
-                                    dataResult += [str(time_diff)]
+                                    dataResult += [timeResult]
                                     updateIndexList.append(y)
+                                else:
+                                    dataResult += ["placeHolder"]
+                            else:
+                                dataResult += ["placeHolder"]
                         else:
                             if formData != False:
                                 dataResult += [formData[y]]
@@ -3408,10 +3457,14 @@ class edit_excel():
                         
                     elif mapList[y][0] == "--==//time--==//":
                         if mapList[y][1] == "Time appear on list YY:MM:DD:H:M:S":
+                            appearIndex.append(y)
                             if formData == False:
                                 appear = False
                             else:
-                                appear = True
+                                if formData[y] == "None":
+                                    appear = False
+                                else:
+                                    appear = True
                             
                             if not appear:
                                 currentTime = time.localtime(time.time())
@@ -3423,7 +3476,7 @@ class edit_excel():
                                 seconds = currentTime.tm_sec
                             
                                 # Format the time components as YY-MM-DD-Hours-Minutes-Seconds (int)
-                                formatted_time = "{:02d}-{:02d}-{:02d}-{:02d}-{:02d}-{:02d}".format(year, month, day, hours, minutes, seconds)
+                                formatted_time = "{:02d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}".format(year, month, day, hours, minutes, seconds)
                                 dataResult += [formatted_time]
                                 updateIndexList.append(y)
                             else:
@@ -3467,7 +3520,7 @@ class edit_excel():
 
                                 matches1 = re.findall(pattern, mapList[y][1])
                                 if len(matches1) > 0:
-                                    colData1 = matches1[0]*24*60*60 + matches1[1]*60*60 + matches1[2]*60 + matches1[3]
+                                    colData1 = int(matches1[0][0])*24*60*60 + int(matches1[0][1])*60*60 + int(matches1[0][2])*60 + int(matches1[0][3])
                                 else:
                                     colData1 = mapList[y][1]
                             else:
@@ -3485,8 +3538,9 @@ class edit_excel():
                                 pattern = r"(-?\d+) *days*, *(\d+):(\d+):(\d+)"
 
                                 matches1 = re.findall(pattern, dataResult[firstNum])
+                                print(matches1)
                                 if len(matches1) > 0:
-                                    colData1 = matches1[0]*24*60*60 + matches1[1]*60*60 + matches1[2]*60 + matches1[3]
+                                    colData1 = int(matches1[0][0])*24*60*60 + int(matches1[0][1])*60*60 + int(matches1[0][2])*60 + int(matches1[0][3])
                                 else:
                                     colData1 = dataResult[firstNum]
                             else:
@@ -3508,7 +3562,7 @@ class edit_excel():
 
                                 matches2 = re.findall(pattern, mapList[y][3])
                                 if len(matches2) > 0:
-                                    colData2 = matches2[0]*24*60*60 + matches2[1]*60*60 + matches2[2]*60 + matches2[3]
+                                    colData2 = int(matches2[0][0])*24*60*60 + int(matches2[0][1])*60*60 + int(matches2[0][2])*60 + int(matches2[0][3])
                                 else:
                                     colData2 = mapList[y][3]
                             else:
@@ -3524,7 +3578,7 @@ class edit_excel():
 
                                 matches2 = re.findall(pattern, dataResult[secondNum])
                                 if len(matches2) > 0:
-                                    colData2 = matches2[0]*24*60*60 + matches2[1]*60*60 + matches2[2]*60 + matches2[3]
+                                    colData2 = int(matches2[0][0])*24*60*60 + int(matches2[0][1])*60*60 + int(matches2[0][2])*60 + int(matches2[0][3])
                                 else:
                                     colData2 = dataResult[secondNum]
                             else:
@@ -3537,19 +3591,23 @@ class edit_excel():
                                 conditionList.append(y)
                             
                         codition = False
+                        print(colData1, colData2)
+                        print(operation)
                         if not lantency:
-                            if self.is_real_number(firstCol) and self.is_real_number(secondCol):
+                            if self.is_real_number(colData1) and self.is_real_number(colData2):
                                 if operation == ">":
                                     codition = float(colData1) > float(colData2)
                                 elif operation == ">=":
                                     codition = float(colData1) >= float(colData2)
+                                    print(float(colData1) >= float(colData2))
                                 elif operation == "<":
                                     codition = float(colData1) < float(colData2)
                                 elif operation == "<=":
                                     codition = float(colData1) <= float(colData2)
                             elif operation == "==":
                                 codition = colData1 == colData2
-                                
+                            
+                            print(codition)
                             if codition:
                                 if mapList[y][4] == "Do nothing":
                                     if formData != False:
@@ -3599,10 +3657,12 @@ class edit_excel():
                                 dataResult += [formData[y]]
                             else:
                                 dataResult += ["placeHolder"]
-                            
-                            
+                                
+                print("current data is", dataResult)            
+                print("operation is", operationList)
+                print("condirion is", conditionList)
             if disappearFlag:
-                self.disappearanceCheck(fileName, primaryKeyIndex, list(disappearIndex))
+                self.disappearanceCheck(fileName, primaryKeyIndex, list(disappearIndex), appearIndex)
             if len(operationList) > 0:
                 for y in operationList:
                     firstNum = list_Title.index(mapList[y][1])
@@ -3655,14 +3715,17 @@ class edit_excel():
                     #
                             # Calculate the time difference
                             time_diff = time1 - time2
-                    #
                             # Extract the desired units
-                            print(str(time_diff))
+                            timeResult = str(time_diff)
+                            print(timeResult)
+                            if "day" not in timeResult:
+                                timeResult = "0 days, " + timeResult
                     #
-                            dataResult[y] = str(time_diff)
+                            dataResult[y] = timeResult
                             updateIndexList.append(y)
                             
             if len(conditionList) > 0:
+                print(conditionList)
                 for y in conditionList:
                     if mapList[y][1] not in list_Title:
                         firstNum = None
@@ -3686,7 +3749,7 @@ class edit_excel():
                                 #
                             matches1 = re.findall(pattern, mapList[y][1])
                             if len(matches1) > 0:
-                                colData1 = matches1[0]*24*60*60 + matches1[1]*60*60 + matches1[2]*60 + matches1[3]
+                                colData1 = int(matches1[0][0])*24*60*60 + int(matches1[0][1])*60*60 + int(matches1[0][2])*60 + int(matches1[0][3])
                             else:
                                 colData1 = mapList[y][1]
                         else:
@@ -3705,7 +3768,7 @@ class edit_excel():
                     #
                             matches1 = re.findall(pattern, dataResult[firstNum])
                             if len(matches1) > 0:
-                                colData1 = matches1[0]*24*60*60 + matches1[1]*60*60 + matches1[2]*60 + matches1[3]
+                                colData1 = int(matches1[0][0])*24*60*60 + int(matches1[0][1])*60*60 + int(matches1[0][2])*60 + int(matches1[0][3])
                             else:
                                 colData1 = dataResult[firstNum]
                         else:
@@ -3724,7 +3787,7 @@ class edit_excel():
                         #
                             matches2 = re.findall(pattern, mapList[y][3])
                             if len(matches2) > 0:
-                                colData2 = matches2[0]*24*60*60 + matches2[1]*60*60 + matches2[2]*60 + matches2[3]
+                                colData2 = int(matches2[0][0])*24*60*60 + int(matches2[0][1])*60*60 + int(matches2[0][2])*60 + int(matches2[0][3])
                             else:
                                 colData2 = mapList[y][3]
                         else:
@@ -3740,7 +3803,7 @@ class edit_excel():
                         #
                             matches2 = re.findall(pattern, dataResult[secondNum])
                             if len(matches2) > 0:
-                                colData2 = matches2[0]*24*60*60 + matches2[1]*60*60 + matches2[2]*60 + matches2[3]
+                                colData2 = int(matches2[0][0])*24*60*60 + int(matches2[0][1])*60*60 + int(matches2[0][2])*60 + int(matches2[0][3])
                             else:
                                 colData2 = dataResult[secondNum]
                         else:
@@ -3788,6 +3851,7 @@ class edit_excel():
                             if formData != False:
                                 dataResult[y] = formData[y]
                             else:
+                                print("current data is", dataResult)
                                 dataResult[y] = "placeHolder"
                         elif mapList[y][5] == "--==//time--==//":
                             currentTime = time.localtime(time.time())
@@ -3799,7 +3863,7 @@ class edit_excel():
                             seconds = currentTime.tm_sec
 
                             # Format the time components as YY-MM-DD-Hours-Minutes-Seconds (int)
-                            formatted_time = "{:02d}-{:02d}-{:02d}-{:02d}-{:02d}-{:02d}".format(year, month, day, hours, minutes, seconds)
+                            formatted_time = "{:02d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}".format(year, month, day, hours, minutes, seconds)
                             dataResult[y] = formatted_time
                             updateIndexList.append(y)
                         else:
@@ -3812,7 +3876,10 @@ class edit_excel():
                 else:
                     dataResult[y] = "placeHolder"
 
-            self.edit_member_information(dataResult)
+            if formData != False:
+                self.edit_member_information([dataResult])
+            else:
+                self.new_data_excel(member_list=dataResult, mod=1)
         # for x in specialDataIndex:
         #     if mapList[x][0] == "--==//binary operation--==//":
         #         if mapList[x][1] == "Time appear on list YY:MM:DD:H:M:S":
@@ -3831,8 +3898,8 @@ class edit_excel():
         result = False
         
         if fileName == "人员信息统计.xlsx":
-            result = self.search_member_information(keysList[0])
-            if result == None:
+            result = self.search_member_information([keysList[0]])
+            if result == []:
                 return False
         
         return result
@@ -3843,12 +3910,12 @@ class edit_excel():
             return False
         
         if fileName == "人员信息统计.xlsx":
-            if self.search_member_information(keysList[0]) == None:
+            if self.search_member_information([keysList[0]]) == []:
                 return False
             
         return True
 
-    def disappearanceCheck(self, fileName:str, keysIndex:list, addTimeLineTo = []):
+    def disappearanceCheck(self, fileName:str, keysIndex:list, addTimeLineTo = [], disappearLabelRecord = []):
         file_path = os.path.join(self.currentPath, "data\\"+fileName)
         if not os.path.exists(file_path):
             return False
@@ -3868,9 +3935,10 @@ class edit_excel():
                 seconds = currentTime.tm_sec
             
                 # Format the time components as YY-MM-DD-Hours-Minutes-Seconds (int)
-                formatted_time = "{:02d}-{:02d}-{:02d}-{:02d}-{:02d}-{:02d}".format(year, month, day, hours, minutes, seconds)
+                formatted_time = "{:02d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}".format(year, month, day, hours, minutes, seconds)
                 for x in range(len(formData)):
                     formData[x][addTimeLineTo[0]] = copy.deepcopy(formatted_time)
+                    formData[x][disappearLabelRecord[0]] = "None"
                 
                 self.edit_member_information(formData)
             
@@ -4106,6 +4174,7 @@ class edit_excel():
     # 进行人员信息修改
     def edit_member_information(self, the_edit):
         # print(information_edit)
+        begin = time.time()
         try:
             path = os.getcwd() + "\\data\\人员信息统计.xlsx"
             workbook = openpyxl.load_workbook(path)
@@ -4130,7 +4199,8 @@ class edit_excel():
             workbook.close()
         except Exception as e:
             self.open_and_close_txt(e)
-
+        print(time.time()-begin)
+        
     def search_member_information(self, label):
         try:
             path = os.getcwd() + "\\data\\人员信息统计.xlsx"
@@ -4179,7 +4249,6 @@ class edit_excel():
         try:
             path = os.getcwd() + "\\data\\人员信息统计.xlsx"
             df = pd.read_excel(path)
-            print(df)
             
             return list(df["标签"])
             
@@ -4257,8 +4326,26 @@ if __name__ == "__main__":
     # text=ocr.textboxSeekerTrainer({"top": 0, "left": 0, "width": 1920, "height": 1080})
     # print(text)
     test = edit_excel()
+    current_time = time.time()
+
+    # Convert the current time to a struct_time object
+    time_struct = time.localtime(current_time)
+
+    # Extract the required components from the struct_time object
+    year = time_struct.tm_year  # last two digits of the year
+    month = time_struct.tm_mon
+    day = time_struct.tm_mday
+    hours = time_struct.tm_hour
+    minutes = time_struct.tm_min
+    seconds = time_struct.tm_sec
+
+    # Format the time components as YY-MM-DD-Hours-Minutes-Seconds
+    formatted_time = "{:02d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}".format(year, month, day, 1, minutes, seconds)
     # test.new_data_excel(member_list = ["sk","#YHHJJK",000,1,1,"T"],mod=1)
-    test.edit_member_information([[1,"#YHHJJK",3,4,5,6],[9,"#YHHJJ",123,345,567,899]])
+    test.edit_member_information([["sk111","#YHHJJK","None","2023-09-10 14:57:50","placeHolder","T"],["kakakaTTT","#YHHJJ","None","2023-09-10 14:57:50","placeHolder","T"]])
     # print(test.search_member_information(["#YHHJJK","#YHHJJ"]))
     # print(test.allMemberLabel())
+    test.backUpData = {0:["sk111", "kakakaTTT"],1:[5160, 4236] ,2:["#YHHJJ", "#YHHJJK"]}
+    test.dataTransferWrapper("人员信息统计.xlsx", [0, 2, ['--==//time--==//', 'Time appear on list YY:MM:DD:H:M:S'], ['--==//time--==//', 'Time disappear from list YY:MM:DD:H:M:S'], ['--==//binary operation--==//', '加入', '-', '最近退出'], ['--==//special condition--==//', '差值', '>=', '2 days, 0:00:00', "F", "Do nothing"]], \
+        [2], [], ['昵称', '标签', '加入', '最近退出', '差值', '常驻认证T/F'], [2, 3, 4, 5])
 
