@@ -4104,25 +4104,27 @@ class edit_excel():
             self.open_and_close_txt(e)
 
     # 进行人员信息修改
-    def edit_member_information(self, information_edit):
+    def edit_member_information(self, the_edit):
         # print(information_edit)
         try:
             path = os.getcwd() + "\\data\\人员信息统计.xlsx"
             workbook = openpyxl.load_workbook(path)
             sheet = workbook.active
-            target_name = str(information_edit[1])
-            # print(type(target_name))
-            target_column = 2
-            count = 2
-            for row in sheet.iter_rows(min_row=2, values_only=True):
-                if str(row[target_column - 1]) == target_name:
-                    i = 1
-                    for col, data in enumerate(information_edit, start=0):  # 修改整行数据
-                        cell = sheet.cell(row=count, column=i)
-                        cell.value = data
-                        i += 1
-                    break  # 找到匹配行后跳出循环
-                count += 1
+
+            for information_edit in the_edit:
+                target_name = str(information_edit[1])
+                # print(type(target_name))
+                target_column = 2
+                count = 2
+                for row in sheet.iter_rows(min_row=2, values_only=True):
+                    if str(row[target_column - 1]) == target_name:
+                        i = 1
+                        for col, data in enumerate(information_edit, start=0):  # 修改整行数据
+                            cell = sheet.cell(row=count, column=i)
+                            cell.value = data
+                            i += 1
+                        break  # 找到匹配行后跳出循环
+                    count += 1
 
             workbook.save(path)
             workbook.close()
@@ -4134,22 +4136,25 @@ class edit_excel():
             path = os.getcwd() + "\\data\\人员信息统计.xlsx"
             workbook = openpyxl.load_workbook(path)
             sheet = workbook.active
+            the_result = []
+            for i in label:
+                target_value = i
+                target_column = "B"
 
-            target_value = label
-            target_column = "B"
+                target_row = None
+                for row in sheet.iter_rows(min_row=2, max_row=sheet.max_row, min_col=1, max_col=3):
+                    if row[1].value == target_value:
+                        target_row = row[1].row
+                        break
+                if target_row is not None:
+                    row_data = [cell.value for cell in sheet[target_row]]
+                    the_result.append(row_data)
+                    workbook.close()
 
-            target_row = None
-            for row in sheet.iter_rows(min_row=2, max_row=sheet.max_row, min_col=1, max_col=3):
-                if row[1].value == target_value:
-                    target_row = row[1].row
-                    break
-            if target_row is not None:
-                row_data = [cell.value for cell in sheet[target_row]]
-                workbook.close()
-                return row_data
-            else:
-                print("Target value not found in the specified column.")
-                workbook.close()
+                else:
+                    print("Target value not found in the specified column.")
+                    workbook.close()
+            return the_result
         except Exception as e:
             self.open_and_close_txt(e)
 
@@ -4251,22 +4256,9 @@ if __name__ == "__main__":
     # ocr=OCRController(os.getcwd())
     # text=ocr.textboxSeekerTrainer({"top": 0, "left": 0, "width": 1920, "height": 1080})
     # print(text)
-    # test = edit_excel()
+    test = edit_excel()
+    # test.new_data_excel(member_list = ["sk","#YHHJJK",000,1,1,"T"],mod=1)
+    test.edit_member_information([[1,"#YHHJJK",3,4,5,6],[9,"#YHHJJ",123,345,567,899]])
+    # print(test.search_member_information(["#YHHJJK","#YHHJJ"]))
+    # print(test.allMemberLabel())
 
-    
-    # # test.new_data_excel(member_list=["sk", "#YHHJJK","000","01","1","T"], mod = 1)
-    # print(test.search_member_information("#YHHJJK"))
-    
-    dbManagement = edit_excel()
-    a = OCRController(dbManagement.currentPath, dbManagement.OCRModelDataLoader())
-    
-    print(a.areTextTransfer({"top": 0, "left": 0, "width": 1920, "height": 1080}))
-    # test.new_data_excel(["C1 P1"], \
-    #     ["参战标记","标签","进攻编号","胜利之星", "三星", "摧毁率", "验贡献"], \
-    #         ["1","#YS41335","2","2", "0", "78%", "15"])
-    # test.new_data_excel(["C1 P1"], \
-    #     ["参战标记","标签","进攻编号","胜利之星", "三星", "摧毁率", "验贡献"], \
-    #         ["1","#YS41335","20","3", "1", "88%", "15"])
-    # test.new_data_excel(["C1 P1"], \
-    #     ["参战标记","标签","进攻编号","胜利之星", "三星", "摧毁率", "验贡献"], \
-    #         ["1","#YS41335","20","3", "1", "88%", "15"])
