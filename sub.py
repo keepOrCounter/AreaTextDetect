@@ -442,6 +442,7 @@ class windowsUI():
             "4000": execute command
             "5000": standby config
             "6000": loop config
+            "7000": scorlling
     """
 
     def __init__(self, override=False, alpha=0.8, bgColor="black", screenShot=-1, \
@@ -1568,14 +1569,14 @@ to area of the list after pressing 'ok'.(Press key 'alt+z' finish the step)")
             self.statusID = 6203
             
         elif status == 6205:
-            self.messageBox = showinfo("RseMessager", "Almost done! The model would try to \
+            self.messageBox = showinfo("RseMessager", "In the next step, the The model would try to \
 find out all target text, please tell us the target text of the first line.(Press key 'alt+z' finish the step)")
             self.__root.attributes("-alpha", 0)
             if self.__subWindows != None:
                 self.__subWindows.attributes("-alpha", 0)
             self.__root.geometry("{0}x{1}+{2}+{3}" \
                 .format(self.width, self.height, 0-self.width, 0-self.height))
-            self.__subWindows.geometry("{2}+{3}" \
+            self.__subWindows.geometry("{0}+{1}" \
                 .format(0 - self.subWindowInfo[0], 0 - self.subWindowInfo[1]))
                 
             self.screenShotCreation()
@@ -1606,7 +1607,7 @@ the model would determine if this cut any text(you could test multiple area at t
         elif status == 6400 or status == 6401:
             self.indexFilterOut = -1 * (status % 6400)
             print(self.indexFilterOut)
-            self.messageBox = showinfo("RseMessager", "Almost done! The model would try to \
+            self.messageBox = showinfo("RseMessager", "In the next step, the model would try to \
 find out all target text, please tell us the target text of the first line.(Press key 'alt+z' finish the step)")
             self.__root.attributes("-alpha", 0)
             if self.__subWindows != None:
@@ -1614,7 +1615,7 @@ find out all target text, please tell us the target text of the first line.(Pres
                 
             self.__root.geometry("{0}x{1}+{2}+{3}" \
                 .format(self.width, self.height, 0-self.width, 0-self.height))
-            self.__subWindows.geometry("{2}+{3}" \
+            self.__subWindows.geometry("{0}+{1}" \
                 .format(0 - self.subWindowInfo[0], 0 - self.subWindowInfo[1]))
             
 
@@ -1787,6 +1788,16 @@ find out all target text, please tell us the target text of the first line.(Pres
                 self.specialData = 0
                 self.layOutController("record", 1, "special condition")
                 self.statusID = 1010
+
+        elif status == 7100:
+            self.messageBox = showinfo("RseMessager", "Almost done! We now need to adjust \
+scorlling program. Please press key 'alt+z' when the following line of data approach to the \
+top of scrolling area(Please do not make its text box attached to the top of scrolling area).\n \
+    Data:\n \
+        " + str(self.landMark))
+            
+            self.counter = 2
+            self.statusID = 7001
 
     def keeper(self) -> None:
         # print("ID:",self.screenShot)
@@ -2131,6 +2142,7 @@ area cut some text. Is it correct?")
                         self.textAreUpperBound = min(transformed["top"] , self.textAreUpperBound)
                         self.textAreLowerBound = max(transformed["top"] + transformed["height"],\
                             self.textAreLowerBound)
+                        self.counter += 1
                     print(self.textAreUpperBound, self.textAreLowerBound)
                     
                     self.recoredArea.append(transformed)
@@ -2144,11 +2156,12 @@ area cut some text. Is it correct?")
                 self.statusID = -1
                 result = []
                 textBoxesParam = (self.recoredArea, self.textBoxes, {"top": 0, "left": 0, "width": \
-                    self.screen.width, "height": self.screen.height}, self.testModelID, "predict")
+                    self.screen.width, "height": self.screen.height}, self.testModelID, "predict", \
+                        self.textAreLowerBound - self.textAreUpperBound, self.textAreUpperBound, \
+                                    self.textAreLowerBound)
                 
                 self.sequencialCommand.append(copy.deepcopy(textBoxesParam))
                 
-                    
                 for x in self.textBoxes:
                     tem = copy.deepcopy(self.recoredArea)
                     if len(self.ocr.relativeDistance[self.testModelID]) == 0:
@@ -2162,9 +2175,12 @@ area cut some text. Is it correct?")
                         result += self.ocr.textSeeker(tem, copy.deepcopy(x), {"top": 0, "left": 0, "width": \
                             self.screen.width, "height": self.screen.height}, self.testModelID, "predict")
                 
+                ocrParam = (self.testScrollingArea, result, True, \
+                    self.imageFilterOut, self.indexFilterOut, (0,0,self.screen.width,self.screen.height))
                 
+                self.sequencialCommand.append(copy.deepcopy(ocrParam))
                 textMatched = self.ocr.areTextTransfer(self.testScrollingArea, result, True, \
-                        self.imageFilterOut, self.indexFilterOut, (0,0,self.screen.width,self.screen.height))
+                    self.imageFilterOut, self.indexFilterOut, (0,0,self.screen.width,self.screen.height))
                 
                 self.screenShotCreation()
                 counter = 0
@@ -2193,7 +2209,15 @@ area cut some text. Is it correct?")
                         counter = 0
                     if formCounter % self.currentColumnNum == 0:
                         formCounter = 0
-                        
+                
+                if len(self.temForm.keys()) > 0:
+                    tem = []
+                    for x in range(len(self.temForm.keys())):
+                        tem.append(self.temForm[x][-2])
+                self.landMark = tem
+                self.landMarkPosition = self.textBoxes[-2]
+                self.displacementMouse = 0
+                print(self.sequencialCommand)
                 self.statusID = 3001
         
         elif self.statusID == 2003: # extra step text matching
@@ -2316,14 +2340,14 @@ area cut some text. Is it correct?")
                 self.widgetsCleaner(self.__canvas, self.screenShotor)
                 self.__rec.clear()
                 self.recoredArea.clear()
-                self.__root.attributes("-alpha", self.alpha)
-                if self.__subWindows != None:
-                    self.__subWindows.attributes("-alpha", self.alpha)
-                self.__root.geometry("{0}x{1}+{2}+{3}" \
-                    .format(self.windowSize["record"][0], self.windowSize["record"][1], \
-                        self.windowSize["record"][2], self.windowSize["record"][3]))
-                self.__subWindows.geometry("{2}+{3}" \
-                    .format(self.subWindowInfo[2], self.subWindowInfo[3]))
+                # self.__root.attributes("-alpha", self.alpha)
+                # if self.__subWindows != None:
+                #     self.__subWindows.attributes("-alpha", self.alpha)
+                # self.__root.geometry("{0}x{1}+{2}+{3}" \
+                #     .format(self.windowSize["record"][0], self.windowSize["record"][1], \
+                #         self.windowSize["record"][2], self.windowSize["record"][3]))
+                # self.__subWindows.geometry("{0}+{1}" \
+                #     .format(self.subWindowInfo[2], self.subWindowInfo[3]))
                 
                 self.messageBox = askquestion("RseMessager", "Are the results correct?")
                 
@@ -2333,8 +2357,8 @@ area cut some text. Is it correct?")
                 
                 
                 self.imageFilterOut, self.indexFilterOut = None, None
-                self.statusID = 6402
-                self.Start(6402)
+                self.statusID = 7000
+                self.Start(7100)
                 
         elif 5000 > self.statusID >= 4201: # execute recorded command
             self.__root.attributes("-alpha", 0)
@@ -2367,6 +2391,101 @@ area cut some text. Is it correct?")
                 self.loopCounter = ([],[],[],[])
                 self.statusID = 4000
         
+        elif 7004 >self.statusID >= 7001:
+            self.counter += 1
+            if self.keyBoardInterrupt.statusGet()== 2:
+                self.IOController.mouse.position = (self.screen.width - 1, self.screen.height + 1)
+                self.counter = 0
+                self.textBoxes = self.ocr.textboxSeekerPredictor(*self.sequencialCommand[0])
+                screen = np.array(self.ocr.sct.grab(self.testScrollingArea))
+                image_rgb = cv2.cvtColor(screen, cv2.COLOR_BGR2RGB)
+
+                result = self.ocr.ocr(image_rgb, cls=False)
+                # print(result)
+                txts = []
+                boxes = []
+                for x in result:
+                    boxes = [line[0] for line in x]
+                    txts = [line[1][0] for line in x]
+                    
+                landMarkUnCheckIndex = list(np.arange(len(self.landMark)))
+                targetBoxes = []
+                for x in range(len(txts)):
+                    counter = 0
+                    while counter < len(landMarkUnCheckIndex):
+                        print(Levenshtein.distance(txts[x], self.landMark[counter], score_cutoff=1))
+                        if Levenshtein.distance(txts[x], self.landMark[counter], score_cutoff=1) <= 1:
+                            print(self.landMark[counter])
+                            landMarkUnCheckIndex.pop(counter)
+                            targetBoxes.append(boxes[x])
+                            counter -= 1
+                        counter += 1
+                    if counter == 0:
+                        break
+                textBoxesResult = None
+                for x in range(len(self.textBoxes)):
+                    counter = 0
+                    for y in range(len(targetBoxes)):
+                        overlap_area = self.ocr.calculate_overlap([self.textBoxes[x]["left"], \
+                            self.textBoxes[x]["top"], self.textBoxes[x]["left"] + tem["width"], \
+                                self.textBoxes[x]["top"] + tem["height"]], \
+                                    targetBoxes[y][0] + targetBoxes[y][2])
+                        if overlap_area > 0.9 * (targetBoxes[y][2][0] - targetBoxes[y][0][0]) * \
+                            (targetBoxes[y][2][1] - targetBoxes[y][0][1]):
+                            
+                            counter += 1
+                    if counter >= len(targetBoxes):
+                        textBoxesResult = self.textBoxes[x]
+                        break
+                        
+                if textBoxesResult != None:
+                    print(textBoxesResult["top"] - self.landMarkPosition["top"])
+                    print(self.displacementMouse)
+                    print(self.displacementMouse/(textBoxesResult["top"] - self.landMarkPosition["top"]))
+                    print(self.displacementMouse - (textBoxesResult["top"] - self.landMarkPosition["top"]))
+                    self.statusID = -1
+                #     self.statusID += 1
+                    
+                # # self.sequencialCommand[2][0], textbox, self.sequencialCommand[2][2], self.sequencialCommand[2][3], \
+                # #     "predict", self.sequencialCommand[2][5], self.sequencialCommand[2][6], self.sequencialCommand[2][7]
+                # result = []
+                # for x in self.textBoxes[1:-1]:
+                #     if len(self.ocr.relativeDistance[self.testModelID]) == 0:
+                #         print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+                #         result += self.ocr.textSeeker(self.sequencialCommand[2][0], copy.deepcopy(x),\
+                #             self.sequencialCommand[2][2], self.sequencialCommand[2][3], "train", \
+                #                 self.sequencialCommand[2][5], self.sequencialCommand[2][6], \
+                #                     self.sequencialCommand[2][7])
+                #     else:
+                #         print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+                #         result += self.ocr.textSeeker(self.sequencialCommand[2][0], copy.deepcopy(x), \
+                #             self.sequencialCommand[2][2], self.sequencialCommand[2][3], "predict")
+                
+                
+                # textMatched = self.ocr.areTextTransfer(self.testScrollingArea, result, True, \
+                #     self.imageFilterOut, self.indexFilterOut, (0,0,self.screen.width,self.screen.height))
+                
+                    
+                # tem = []
+                # for x in range(len(self.landMark)):
+                #     tem.append(textMatched[-1 * len(self.landMark) + x])
+                # self.landMark = tem
+                # self.landMarkPosition = self.textBoxes[-1]
+                # self.displacementMouse = 0
+                
+            elif self.counter % 3 == 0:
+                self.counter = 0
+                self.IOController.mouse.position = ((self.testScrollingArea["left"] + self.testScrollingArea["width"])/2 ,\
+                    self.testScrollingArea["top"] + int(self.testScrollingArea["height"] * 9/10))
+                time.sleep(0.1)
+                self.IOController.mouse.press(Button.left)
+                self.IOController.smooth((self.testScrollingArea["left"] + self.testScrollingArea["width"])/2 ,\
+                    self.testScrollingArea["top"] + int(self.testScrollingArea["height"] * 8/10))
+                time.sleep(0.1)
+                self.IOController.mouse.release(Button.left)
+                self.displacementMouse += int(self.testScrollingArea["height"] * 1/10)
+                time.sleep(0.1)
+            
     
     def widgetsCleaner(self, *arrayLike:Iterable) -> None:
         for x in arrayLike:
@@ -2683,7 +2802,7 @@ class OCRController():
     def __closest(self, a):
         return np.argmin(a)
     
-    def __calculate_overlap(self, box1, box2):
+    def calculate_overlap(self, box1, box2):
         # Calculate the overlapping area between two text boxes
         x1 = max(box1[0], box2[0])
         y1 = max(box1[1], box2[1])
@@ -2727,7 +2846,7 @@ class OCRController():
 
                 for screen_box in range(len(boxes)):
                     tem = textPosition[list_box].copy()
-                    overlap_area = self.__calculate_overlap([tem["left"] - targetArea["left"], \
+                    overlap_area = self.calculate_overlap([tem["left"] - targetArea["left"], \
                         tem["top"] - targetArea["top"], tem["left"] - targetArea["left"] + tem["width"], \
                             tem["top"] - targetArea["top"] + tem["height"]], \
                             boxes[screen_box][0] + boxes[screen_box][2])
@@ -2745,7 +2864,7 @@ class OCRController():
                                     >= i.width or abs(lasty - goto_pos.y) >= i.height:
                                     #
                                     lastx, lasty = goto_pos.x, goto_pos.y
-                                    wrongArea = self.__calculate_overlap((i.left - targetArea["left"], i.top - targetArea["top"], i.left \
+                                    wrongArea = self.calculate_overlap((i.left - targetArea["left"], i.top - targetArea["top"], i.left \
                                         + i.width - targetArea["left"], i.top + i.height - targetArea["top"]), \
                                             boxes[screen_box][0] + boxes[screen_box][2])
                                     if wrongArea >= 0.7 * i.width * i.height:
